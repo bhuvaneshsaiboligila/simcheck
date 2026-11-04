@@ -1,6 +1,15 @@
 export const VERSION = "0.1.0";
 
-export type { Severity, SolverType, Finding, InputError, Result, Mesh } from "./types.js";
+export type {
+  Severity,
+  SolverType,
+  Finding,
+  InputError,
+  Result,
+  Mesh,
+  MetricResult,
+  WorstCell,
+} from "./types.js";
 
 export {
   SUTHERLAND_MU0,
@@ -44,3 +53,8 @@ export { cellVolumes } from "./metrics/volume.js";
 export { aspectRatioMetric } from "./metrics/aspectRatio.js";
 export { nonOrthoAngleMetric } from "./metrics/nonOrthogonality.js";
 export { skewnessMetric } from "./metrics/skewness.js";
+
+export { volumeFindings } from "./checks/mesh/volume.js";
+export { aspectRatioFindings } from "./checks/mesh/aspectRatio.js";
+export { nonOrthogonalityFindings } from "./checks/mesh/nonOrthogonality.js";
+export { skewnessFindings } from "./checks/mesh/skewness.js";

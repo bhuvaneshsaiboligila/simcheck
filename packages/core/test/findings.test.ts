@@ -1,0 +1,227 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { aspectRatioFindings } from "../src/checks/mesh/aspectRatio.js";
+import { nonOrthogonalityFindings } from "../src/checks/mesh/nonOrthogonality.js";
+import { skewnessFindings } from "../src/checks/mesh/skewness.js";
+import { volumeFindings } from "../src/checks/mesh/volume.js";
+import { buildAdjacency, parseGmsh } from "../src/index.js";
+import type { Adjacency, Mesh } from "../src/index.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const FIXTURES_DIR = join(__dirname, "..", "..", "..", "tests", "fixtures");
+
+function readBytes(path: string): Uint8Array {
+  return new Uint8Array(readFileSync(path));
+}
+
+function expectMesh(result: ReturnType<typeof parseGmsh>): Mesh {
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error("expected ok result: " + JSON.stringify(result));
+  return result.value;
+}
+
+function expectAdjacency(result: ReturnType<typeof buildAdjacency>): Adjacency {
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error("expected ok result: " + JSON.stringify(result));
+  return result.value;
+}
+
+function loadFixture(name: string): { mesh: Mesh; adjacency: Adjacency } {
+  const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, name))));
+  const adjacency = expectAdjacency(buildAdjacency(mesh));
+  return { mesh, adjacency };
+}
+
+// ---------------------------------------------------------------------------
+// Clean fixtures: single-tet and two-tets-orthogonal have no cell failing
+// any of the 4 metrics (confirmed from tests/fixtures/README.md and
+// tests/reference/*.json's perCellFields: aspect ratio max 2.08 << 1000,
+// skewness max 0.25 << 4, non-ortho max 0° << 70°, volume all positive).
+// ---------------------------------------------------------------------------
+
+describe("findings - clean fixtures", () => {
+  for (const name of ["single-tet.msh", "two-tets-orthogonal.msh"]) {
+    describe(name, () => {
+      const { mesh, adjacency } = loadFixture(name);
+
+      it("volume: exactly 1 pass finding, empty worst list", () => {
+        const r = volumeFindings(mesh, adjacency);
+        expect(r.findings).toHaveLength(1);
+        expect(r.findings[0]!.severity).toBe("pass");
+        expect(r.worst).toHaveLength(0);
+        expect(r.histogram).toBeUndefined();
+        expect(r.binEdges).toBeUndefined();
+      });
+
+      it("aspect ratio: exactly 1 pass finding, empty worst list", () => {
+        const r = aspectRatioFindings(mesh, adjacency);
+        expect(r.findings).toHaveLength(1);
+        expect(r.findings[0]!.severity).toBe("pass");
+        expect(r.worst).toHaveLength(0);
+      });
+
+      it("skewness: exactly 1 pass finding, empty worst list", () => {
+        const r = skewnessFindings(mesh, adjacency);
+        expect(r.findings).toHaveLength(1);
+        expect(r.findings[0]!.severity).toBe("pass");
+        expect(r.worst).toHaveLength(0);
+      });
+
+      it("non-orthogonality: exactly 1 pass finding, empty worst list", () => {
+        const r = nonOrthogonalityFindings(mesh, adjacency);
+        expect(r.findings).toHaveLength(1);
+        expect(r.findings[0]!.severity).toBe("pass");
+        expect(r.worst).toHaveLength(0);
+      });
+    });
+  }
+
+  it("two-tets-skewed: non-orthogonality (35.2644°) is still below the 70° warn band -> 1 pass finding", () => {
+    const { mesh, adjacency } = loadFixture("two-tets-skewed.msh");
+    const r = nonOrthogonalityFindings(mesh, adjacency);
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe("pass");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inverted-tet.msh: the one cell has volume -1/6, triggering the volume
+// fail finding.
+// ---------------------------------------------------------------------------
+
+describe("findings - inverted-tet", () => {
+  const { mesh, adjacency } = loadFixture("inverted-tet.msh");
+
+  it("volume: 1 fail finding, worst cell is the inverted cell's own tag", () => {
+    const r = volumeFindings(mesh, adjacency);
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe("fail");
+    expect(r.findings[0]!.message).toContain("1 of 1 cells (100.0%)");
+    expect(r.worst).toHaveLength(1);
+    expect(r.worst[0]!.tag).toBe(mesh.tags[0]);
+    expect(r.worst[0]!.value).toBeCloseTo(-1 / 6, 9);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hand-built 3-tet mesh for the non-orthogonality warn/fail tier split.
+// Tet A: nodes 0,1,2,3 = (0,0,0),(1,0,0),(0,1,0),(0,0,1), centroid (.25,.25,.25).
+// Tet B shares face {1,2,3} with A, apex node 4 = (1,1,-1.9): the shared
+// face's outward normal (from A) is along (1,1,1); the owner->neighbour
+// centroid vector works out to (x/4,y/4,z/4) for apex (x,y,z) (algebraic
+// identity -- see derivation in findings.test.ts history), giving an angle
+// of ~88.6° between (1,1,-1.9) and (1,1,1): inside the 70-90 warn band.
+// Tet C shares face {0,1,2} with A, apex node 5 = (3,0,2): that face's
+// outward normal (from A) is along (0,0,-1), giving an angle of ~108.4°
+// between the owner->neighbour vector and the face normal: past the 90°
+// fail threshold.
+// Tet A's own per-cell value is the max over its two internal faces
+// (~88.6°, ~108.4°), so it lands in the fail tier too, alongside tet C;
+// tet B alone lands in the warn tier -- this is the "a cell counts in at
+// most one tier" case from decisions.md #29, exercised across 3 cells.
+// ---------------------------------------------------------------------------
+
+function warnFailMesh(): Mesh {
+  const coords = new Float64Array([
+    0, 0, 0, // 0
+    1, 0, 0, // 1
+    0, 1, 0, // 2
+    0, 0, 1, // 3
+    1, 1, -1.9, // 4 (tet B apex -> warn-tier angle on face {1,2,3})
+    3, 0, 2, // 5 (tet C apex -> fail-tier angle on face {0,1,2})
+  ]);
+  const conn = new Int32Array([
+    0, 1, 2, 3, // tet A (tag 1)
+    1, 4, 2, 3, // tet B (tag 2)
+    0, 1, 2, 5, // tet C (tag 3)
+  ]);
+  return {
+    coords,
+    conn,
+    tags: new Int32Array([1, 2, 3]),
+    physical: new Int32Array([1, 1, 1]),
+  };
+}
+
+describe("findings - non-orthogonality warn/fail tier split", () => {
+  const mesh = warnFailMesh();
+  const adjacency = expectAdjacency(buildAdjacency(mesh));
+
+  it("builds the expected adjacency (2 internal faces, 10 total)", () => {
+    expect(adjacency.internalCount).toBe(2);
+    expect(adjacency.faceCount).toBe(10);
+  });
+
+  it("tet B's angle is in the 70-90 warn band; tets A and C are >= 90", () => {
+    const r = nonOrthogonalityFindings(mesh, adjacency);
+    // 2 findings: warn tier (tet B only) and fail tier (tets A and C).
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]!.severity).toBe("warn");
+    expect(r.findings[0]!.message).toContain("1 of 3 cells");
+    expect(r.findings[1]!.severity).toBe("fail");
+    expect(r.findings[1]!.message).toContain("2 of 3 cells");
+  });
+
+  it("worst-cell list: only the 3 offending cells, sorted descending by angle", () => {
+    const r = nonOrthogonalityFindings(mesh, adjacency);
+    expect(r.worst).toHaveLength(3);
+    for (let i = 1; i < r.worst.length; i++) {
+      expect(r.worst[i - 1]!.value).toBeGreaterThanOrEqual(r.worst[i]!.value);
+    }
+    // The last (smallest) entry is tet B, in the warn band.
+    const smallest = r.worst[r.worst.length - 1]!;
+    expect(smallest.tag).toBe(2);
+    expect(smallest.value).toBeGreaterThan(70);
+    expect(smallest.value).toBeLessThan(90);
+    // The other two (tet A and tet C) are both >= 90, tied at the same angle.
+    expect(r.worst[0]!.value).toBeGreaterThanOrEqual(90);
+    expect(r.worst[1]!.value).toBeGreaterThanOrEqual(90);
+    expect(new Set([r.worst[0]!.tag, r.worst[1]!.tag])).toEqual(new Set([1, 3]));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Degenerate histogram ranges: single-tet.msh has exactly 1 cell, so every
+// metric's min === max. Confirm the aspect ratio (log, multiplicative
+// epsilon) and non-orthogonality (linear, additive epsilon; this fixture's
+// non-ortho max is 0, the degenerate case decisions.md #29 anticipates)
+// histograms stay strictly monotonic with no NaN/Infinity.
+// ---------------------------------------------------------------------------
+
+describe("findings - degenerate histogram ranges (single-tet)", () => {
+  const { mesh, adjacency } = loadFixture("single-tet.msh");
+
+  it("aspect ratio: 21 strictly increasing, finite bin edges", () => {
+    const r = aspectRatioFindings(mesh, adjacency);
+    expect(r.binEdges).toBeDefined();
+    const edges = r.binEdges!;
+    expect(edges).toHaveLength(21);
+    for (const e of edges) {
+      expect(Number.isFinite(e)).toBe(true);
+    }
+    for (let i = 1; i < edges.length; i++) {
+      expect(edges[i]!).toBeGreaterThan(edges[i - 1]!);
+    }
+    expect(r.histogram).toBeDefined();
+    expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(1);
+  });
+
+  it("non-orthogonality: degenerate max=0 is floored to 1e-9, finite monotonic edges", () => {
+    const r = nonOrthogonalityFindings(mesh, adjacency);
+    expect(r.max).toBe(0);
+    const edges = r.binEdges!;
+    expect(edges).toHaveLength(21);
+    for (const e of edges) {
+      expect(Number.isFinite(e)).toBe(true);
+      expect(Number.isNaN(e)).toBe(false);
+    }
+    for (let i = 1; i < edges.length; i++) {
+      expect(edges[i]!).toBeGreaterThan(edges[i - 1]!);
+    }
+    expect(edges[0]).toBe(0);
+    expect(edges[20]).toBeCloseTo(1e-9, 15);
+    expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(1);
+  });
+});

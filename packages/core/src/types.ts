@@ -48,3 +48,33 @@ export interface Mesh {
   tags: Int32Array; // Gmsh element tag per cell
   physical: Int32Array; // physical group tag per cell (0 if none)
 }
+
+/**
+ * One entry in a MetricResult's worst-cell table (PLAN.md §6, up to 50
+ * entries). `physical` is the raw `mesh.physical[cell]` tag; turning it
+ * into a display name ("group N" / "no physical group") is a UI concern
+ * (decisions.md #18), not this type's job.
+ */
+export interface WorstCell {
+  tag: number;
+  centroid: [number, number, number];
+  physical: number;
+  value: number;
+}
+
+/**
+ * Summary result for one mesh metric (PLAN.md §6, milestone 8). `histogram`
+ * and `binEdges` are optional because the volume metric has no histogram
+ * (decisions.md #29: not called for in PLAN.md §6, and raw cell volume
+ * mixes deliberate boundary-layer grading with real defects, unlike the
+ * other three metrics) -- the other three metrics always populate both.
+ */
+export interface MetricResult {
+  histogram?: Uint32Array; // 20 bins (log bins for aspect ratio)
+  binEdges?: Float64Array;
+  min: number;
+  max: number;
+  mean: number;
+  worst: WorstCell[]; // up to 50, filtered to offending cells only
+  findings: Finding[];
+}

@@ -7,6 +7,9 @@ import { FlowInputsSection } from "./components/FlowInputsSection";
 import { LayersSection } from "./components/LayersSection";
 import { CflSection } from "./components/CflSection";
 import { ResultsSection } from "./components/ResultsSection";
+import { MeshCheckerSection } from "./components/mesh/MeshCheckerSection";
+
+type Mode = "flow" | "mesh";
 
 // Defaults match hand-calcs.md Case A (air, 20 C, 10 m/s, x = 1 m, y+ = 1,
 // cell-centred), so the page shows a known-good example on first load.
@@ -35,6 +38,7 @@ const INITIAL_STATE: FlowUiState = {
 };
 
 function App() {
+  const [mode, setMode] = useState<Mode>("flow");
   const [state, setState] = useState<FlowUiState>(INITIAL_STATE);
 
   const update = (patch: Partial<FlowUiState>) => {
@@ -52,40 +56,67 @@ function App() {
       <header className="app-header">
         <h1>SimCheck</h1>
         <p>
-          A pre-flight checker for CFD setups — flow calculator (v{VERSION}). Every number below
-          comes with its formula and source.
+          A pre-flight checker for CFD setups (v{VERSION}). Every number below comes with its
+          formula and source.
         </p>
       </header>
 
-      <SolverSection solver={state.solver} onChange={(solver) => update({ solver })} />
+      <nav className="mode-switch" role="tablist" aria-label="SimCheck tools">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "flow"}
+          className={`mode-tab${mode === "flow" ? " mode-tab-active" : ""}`}
+          onClick={() => setMode("flow")}
+        >
+          Flow calculator
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "mesh"}
+          className={`mode-tab${mode === "mesh" ? " mode-tab-active" : ""}`}
+          onClick={() => setMode("mesh")}
+        >
+          Mesh checker
+        </button>
+      </nav>
 
-      <div className="layout">
-        <div className="inputs-column">
-          <FluidSection
-            state={state}
-            update={update}
-            error={computation.fluid.ok ? undefined : computation.fluid.error}
-          />
-          <FlowInputsSection state={state} update={update} />
-          <LayersSection
-            state={state}
-            update={update}
-            layers={computation.layers}
-            computedFirstCellHeightM={computedFirstCellHeightM}
-            computedDeltaM={computation.boundaryLayerM}
-          />
-          <CflSection state={state} update={update} cfl={computation.cfl} />
-        </div>
+      {mode === "flow" ? (
+        <>
+          <SolverSection solver={state.solver} onChange={(solver) => update({ solver })} />
 
-        <div className="results-column">
-          <ResultsSection
-            wallDistance={computation.wallDistance}
-            boundaryLayerM={computation.boundaryLayerM}
-            regime={computation.regime}
-            solver={state.solver}
-          />
-        </div>
-      </div>
+          <div className="layout">
+            <div className="inputs-column">
+              <FluidSection
+                state={state}
+                update={update}
+                error={computation.fluid.ok ? undefined : computation.fluid.error}
+              />
+              <FlowInputsSection state={state} update={update} />
+              <LayersSection
+                state={state}
+                update={update}
+                layers={computation.layers}
+                computedFirstCellHeightM={computedFirstCellHeightM}
+                computedDeltaM={computation.boundaryLayerM}
+              />
+              <CflSection state={state} update={update} cfl={computation.cfl} />
+            </div>
+
+            <div className="results-column">
+              <ResultsSection
+                wallDistance={computation.wallDistance}
+                boundaryLayerM={computation.boundaryLayerM}
+                regime={computation.regime}
+                solver={state.solver}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <MeshCheckerSection />
+      )}
 
       <footer className="app-footer">
         <p>

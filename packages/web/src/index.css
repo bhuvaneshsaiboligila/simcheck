@@ -216,3 +216,153 @@ main {
   color: #777;
   font-size: 0.85rem;
 }
+
+/* Mode switch (flow calculator / mesh checker) */
+
+.mode-switch {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mode-tab {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: none;
+  border-bottom: 3px solid transparent;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+}
+
+.mode-tab-active {
+  color: #1a1a1a;
+  border-bottom-color: #1a1a1a;
+}
+
+/* Mesh checker */
+
+.mesh-panel h2 {
+  margin-top: 0;
+}
+
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #555;
+  cursor: pointer;
+  background: var(--bg-muted);
+  margin-bottom: 1rem;
+}
+
+.drop-zone p {
+  margin: 0;
+}
+
+.drop-zone-active {
+  border-color: var(--pass);
+  background: #eefaf0;
+}
+
+.drop-zone-disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.progress-container {
+  margin-bottom: 1rem;
+}
+
+.progress-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--pass);
+  transition: width 0.2s ease;
+}
+
+.progress-label {
+  font-size: 0.85rem;
+  color: #555;
+  margin: 0.35rem 0 0;
+}
+
+.mesh-summary {
+  font-size: 0.95rem;
+  margin: 0 0 1rem;
+}
+
+.metric-panel {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.metric-panel h3 {
+  margin: 0 0 0.25rem;
+}
+
+.metric-stats {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+  color: #444;
+  margin: 0 0 0.75rem;
+}
+
+.histogram {
+  display: flex;
+  align-items: flex-end;
+  height: 80px;
+  gap: 1px;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.histogram-bar-wrap {
+  flex: 1 1 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.histogram-bar {
+  width: 100%;
+  background: #4a7fb5;
+  min-height: 1px;
+}
+
+.worst-cell-table-wrap {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+}
+
+.worst-cell-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.worst-cell-table th,
+.worst-cell-table td {
+  text-align: left;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.worst-cell-table th {
+  color: #555;
+  font-weight: 600;
+}
+
+.worst-cell-table td {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
