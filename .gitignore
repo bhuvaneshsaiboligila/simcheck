@@ -1,0 +1,10 @@
+node_modules/
+dist/
+refs/
+*.tsbuildinfo
+*.log
+.env
+.env.*
+# generated meshes (fixtures are committed)
+meshes/**/*.msh
+reference/out/
