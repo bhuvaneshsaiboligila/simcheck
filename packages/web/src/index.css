@@ -1,7 +1,218 @@
 :root {
   font-family: system-ui, sans-serif;
+  color: #1a1a1a;
+  --pass: #1f7a3d;
+  --warn: #9a6a00;
+  --fail: #b3261e;
+  --border: #d9d9d9;
+  --bg-muted: #f6f6f7;
 }
 
 body {
   margin: 0;
+  background: #fafafa;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.app-header h1 {
+  margin-bottom: 0.25rem;
+}
+
+.app-header p {
+  color: #444;
+  margin-top: 0;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: #fff;
+}
+
+.solver-panel {
+  margin-bottom: 1.5rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.75rem;
+}
+
+.field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.field input,
+.field select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.field input[aria-invalid="true"] {
+  border-color: var(--fail);
+}
+
+.field-error {
+  color: var(--fail);
+  font-size: 0.8rem;
+  margin: 0.2rem 0 0;
+}
+
+.field-hint {
+  font-size: 0.8rem;
+  color: #666;
+  margin: 0 0 0.75rem;
+}
+
+.fill-button {
+  display: block;
+  margin: -0.25rem 0 0.75rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-muted);
+  cursor: pointer;
+}
+
+.error-notice {
+  color: var(--fail);
+  background: #fdecea;
+  border: 1px solid var(--fail);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.result-row {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0;
+}
+
+.result-row:last-child {
+  border-bottom: none;
+}
+
+.result-row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-weight: 600;
+}
+
+.result-value {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.result-formula,
+.result-reference,
+.result-note {
+  font-size: 0.8rem;
+  color: #555;
+  margin: 0.15rem 0 0;
+}
+
+.result-reference {
+  color: #777;
+}
+
+.result-note {
+  font-style: italic;
+}
+
+.findings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.finding {
+  border-left: 4px solid var(--border);
+  padding: 0.4rem 0.75rem;
+  background: var(--bg-muted);
+  border-radius: 0 4px 4px 0;
+}
+
+.finding-warn {
+  border-left-color: var(--warn);
+}
+
+.finding-fail {
+  border-left-color: var(--fail);
+}
+
+.finding-pass {
+  border-left-color: var(--pass);
+}
+
+.finding-title {
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.severity-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+  margin-right: 0.5rem;
+  color: #fff;
+}
+
+.severity-pass {
+  background: var(--pass);
+}
+
+.severity-warn {
+  background: var(--warn);
+}
+
+.severity-fail {
+  background: var(--fail);
+}
+
+.finding-message,
+.finding-why,
+.finding-fix,
+.finding-reference {
+  margin: 0.15rem 0;
+  font-size: 0.85rem;
+}
+
+.finding-reference {
+  color: #777;
+}
+
+.app-footer {
+  margin-top: 1.5rem;
+  color: #777;
+  font-size: 0.85rem;
 }

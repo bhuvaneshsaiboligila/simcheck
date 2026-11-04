@@ -28,6 +28,7 @@ Settled. Agents do not re-open these; add new lines at the bottom with the date.
 
 | 22 | 2026-11-04 | Cf coefficient resolved to 0.027 (was 0.026); δ unchanged at 0.16. All of `PLAN.md` §5, `docs/hand-calcs.md`, `docs/flow-spec.md` updated to match. Citation page/equation number in White still marked *verify* | Bhuvanesh approved after cfd-physics flagged the mismatch; every independently checked source gave 0.027, none gave 0.026 |
 | 23 | 2026-11-04 | Water property table approved: 0–80 °C in 5 °C steps (17 points), density linear interpolation, viscosity log-linear interpolation, IAPWS/NIST-consistent values as source of record (exact textbook table/page still marked *verify*); temperatures outside [0, 80] °C are an input error, never extrapolated | Bhuvanesh approved cfd-physics's proposal, widened from the initial 3-point (10/20/30 °C) proposal |
+| 24 | 2026-11-04 | The always-on flat-plate disclosure finding uses `severity: "pass"` (green badge), not a new `Severity` value; checked against the live v0.1 screenshot, it reads clearly next to amber "warn" regime badges | Avoids widening the `Finding.severity` type for one disclosure note; confirmed visually before v0.1.0 tag |
 
 ## Open (needs Bhuvanesh)
 
