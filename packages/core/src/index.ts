@@ -39,3 +39,8 @@ export { parseGmsh } from "./parsers/gmsh.js";
 
 export { buildAdjacency } from "./geometry/adjacency.js";
 export type { Adjacency } from "./geometry/adjacency.js";
+
+export { cellVolumes } from "./metrics/volume.js";
+export { aspectRatioMetric } from "./metrics/aspectRatio.js";
+export { nonOrthoAngleMetric } from "./metrics/nonOrthogonality.js";
+export { skewnessMetric } from "./metrics/skewness.js";

@@ -58,20 +58,29 @@ export interface Adjacency {
 
 /**
  * The 4 triangular faces of a tet, each named by the vertex it is opposite
- * (standard tet face enumeration). Given tet nodes [n0, n1, n2, n3]:
+ * (standard tet face enumeration), ordered so that for a positively-oriented
+ * tet (nodes [n0, n1, n2, n3] with positive signed volume), every face's
+ * `0.5 * cross(q1 - q0, q2 - q0)` points outward from the tet -- not just
+ * face membership. The naive "omit vertex k, keep the rest in original
+ * order" listing (`[1,2,3]`, `[0,2,3]`, `[0,1,3]`, `[0,1,2]`) does NOT have
+ * this property: omitting an odd-indexed vertex flips the parity of the
+ * remaining permutation relative to omitting an even-indexed one, so faces
+ * opposite n1 and n3 come out inward-pointing with that naive listing while
+ * n0 and n2 come out outward-pointing (verified by hand against
+ * tests/fixtures/single-tet.msh's coordinates). The last two entries below
+ * swap their last two indices relative to the naive listing to correct
+ * this -- same 3 nodes per face (face membership/adjacency matching is
+ * unaffected), consistently outward winding.
  *   face opposite n0: [n1, n2, n3]
- *   face opposite n1: [n0, n2, n3]
+ *   face opposite n1: [n0, n3, n2]
  *   face opposite n2: [n0, n1, n3]
- *   face opposite n3: [n0, n1, n2]
- * Orientation/outward-normal sign is not relevant here (that is a later
- * milestone's concern, PLAN.md §5 volume sign) -- only face membership
- * (which 3 of the 4 nodes) matters for adjacency.
+ *   face opposite n3: [n0, n2, n1]
  */
 const FACE_VERTEX_OFFSETS: readonly [number, number, number][] = [
   [1, 2, 3],
-  [0, 2, 3],
+  [0, 3, 2],
   [0, 1, 3],
-  [0, 1, 2],
+  [0, 2, 1],
 ];
 
 /** Sorts 3 numbers ascending, returned as a fixed-size tuple. */

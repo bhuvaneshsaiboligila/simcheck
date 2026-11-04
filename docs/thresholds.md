@@ -32,9 +32,11 @@ Source: `refs/OpenFOAM-v2512/src/OpenFOAM/meshes/primitiveMesh/primitiveMeshChec
 
 Note: the separate `-meshQuality` dict path (not used by plain `checkMesh`, so not relevant to the default reference pipeline) has different values: `maxNonOrtho 65`, `maxInternalSkewness 4`, `maxBoundarySkewness 20`, and no aspect-ratio entry at all. SimCheck's reference pipeline runs plain `checkMesh` with no dict, so the table above is the one that applies.
 
-Printed precision: checkMesh's `Info<<` output uses `writePrecision 6` (6 significant digits, `etc/controlDict`), giving ~1e-6 relative rounding error — well inside decision #15's 1e-4 relative tolerance for comparing SimCheck's computed statistics against checkMesh's printed max/mean values. No correction needed to decision #15.
+Printed precision: checkMesh's `Info<<` console output uses `writePrecision 6` (6 significant digits, `etc/controlDict`), giving ~1e-6 relative rounding error — well inside decision #15's 1e-4 relative tolerance for comparing SimCheck's computed statistics against checkMesh's printed max/mean values. No correction needed there.
 
-Decision recorded: `docs/decisions.md` #26.
+**Correction**: `writePrecision` also governs checkMesh's ASCII *field file* output (`-writeAllFields`), not just console log output — the reference pipeline's case template originally inherited the default `writePrecision 6`, so `tests/reference/*.json`'s `perCellFields` values only carried ~6 significant digits, which cannot satisfy decision #15's 1e-6 relative tolerance on written fields regardless of implementation correctness (milestone 7 hit this directly: every metric overshot 1e-6 by a small, uniform ~2-3x margin, consistent with 6-sig-fig rounding, not a formula bug). Fixed by setting `writePrecision 17` in `scripts/case-template/system/controlDict` (round-trips a full IEEE double) and regenerating all 6 reference JSON files — decision #15's tolerance itself was kept exactly as-is, not loosened (decision #27).
+
+Decisions recorded: `docs/decisions.md` #26, #27, #28.
 
 ## Reference pipeline
 

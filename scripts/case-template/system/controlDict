@@ -17,7 +17,7 @@ writeControl    timeStep;
 writeInterval   1;
 purgeWrite      0;
 writeFormat     ascii;
-writePrecision  6;
+writePrecision  17;
 writeCompression off;
 timeFormat      general;
 timePrecision   6;
