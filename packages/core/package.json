@@ -18,9 +18,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "bench": "tsc -p tsconfig.bench.json && node bench-dist/bench/parse.bench.js"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   }

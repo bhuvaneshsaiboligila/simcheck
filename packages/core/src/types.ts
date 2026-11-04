@@ -36,3 +36,15 @@ export function ok<T>(value: T): Result<T> {
 export function err<T>(field: string, message: string): Result<T> {
   return { ok: false, error: { kind: "input-error", field, message } };
 }
+
+/**
+ * Pure-tet volume mesh, v0.2 (PLAN.md §6). Produced by parsers/gmsh.ts.
+ * Flat typed arrays only: one entry per node in `coords`, one group of 4
+ * node indices per tet in `conn`, one entry per tet in `tags`/`physical`.
+ */
+export interface Mesh {
+  coords: Float64Array; // x,y,z per node
+  conn: Int32Array; // 4 node indices per tet (0-based, dense)
+  tags: Int32Array; // Gmsh element tag per cell
+  physical: Int32Array; // physical group tag per cell (0 if none)
+}

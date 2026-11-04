@@ -1,5 +1,6 @@
 node_modules/
 dist/
+bench-dist/
 refs/
 *.tsbuildinfo
 *.log

@@ -1,6 +1,6 @@
 export const VERSION = "0.1.0";
 
-export type { Severity, SolverType, Finding, InputError, Result } from "./types.js";
+export type { Severity, SolverType, Finding, InputError, Result, Mesh } from "./types.js";
 
 export {
   SUTHERLAND_MU0,
@@ -34,3 +34,5 @@ export { maxTimestep } from "./checks/flow/cfl.js";
 export type { CflInputs } from "./checks/flow/cfl.js";
 
 export { regimeFindings } from "./checks/flow/regime.js";
+
+export { parseGmsh } from "./parsers/gmsh.js";
