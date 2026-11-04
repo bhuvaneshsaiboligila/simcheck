@@ -1,0 +1,92 @@
+{
+  "mesh": "tests/fixtures/two-tets-orthogonal.msh",
+  "timestamp": "2026-11-04T19:03:11.777Z",
+  "checkMesh": {
+    "stdout": "/*---------------------------------------------------------------------------*\\\n| =========                 |                                                 |\n| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n|  \\\\    /   O peration     | Version:  2512                                  |\n|   \\\\  /    A nd           | Website:  www.openfoam.com                      |\n|    \\\\/     M anipulation  |                                                 |\n\\*---------------------------------------------------------------------------*/\nBuild  : _87ed40d2-20251219 OPENFOAM=2512 version=2512\nArch   : \"LSB;label=32;scalar=64\"\nExec   : gmshToFoam -case . /meshes/two-tets-orthogonal.msh\nDate   : Nov 04 2026\nTime   : 19:03:09\nHost   : 71e06ec9a9f5\nPID    : 226\nI/O    : uncollated\nCase   : /case\nnProcs : 1\ntrapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).\nmemory pool : not available\nfileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)\nallowSystemOperations : Allowing user-supplied system call operations\n\n// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\nCreate time\n\nStarting to read mesh format at line 2\nRead format version 2.2  ascii 0\n\nStarting to read points at line 5\nVertices to be read: 5\nVertices read:5\n\nStarting to read cells at line 13\nCells to be read: 2\n\nMapping region 1 to Foam cellZone 0\nCells:\n    total:2\n    hex  :0\n    prism:0\n    pyr  :0\n    tet  :2\n\nCellZones:\nZone\tSize\n    0\t2\n\n\n--> FOAM Warning : \n    From Foam::polyMesh::polyMesh(const Foam::IOobject&, Foam::pointField&&, const Foam::cellShapeList&, const Foam::faceListList&, const Foam::wordList&, const Foam::wordList&, const Foam::word&, const Foam::word&, const Foam::wordList&, bool)\n    in file meshes/polyMesh/polyMeshFromShapeMesh.C at line 635\n    Found 6 undefined faces in mesh; adding to default patch defaultFaces\n\nFaceZones:\nZone\tSize\n\nWriting zone 0 to cellZone cellZone_0 and cellSet\nEnd\n\n/*---------------------------------------------------------------------------*\\\n| =========                 |                                                 |\n| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n|  \\\\    /   O peration     | Version:  2512                                  |\n|   \\\\  /    A nd           | Website:  www.openfoam.com                      |\n|    \\\\/     M anipulation  |                                                 |\n\\*---------------------------------------------------------------------------*/\nBuild  : _87ed40d2-20251219 OPENFOAM=2512 version=2512\nArch   : \"LSB;label=32;scalar=64\"\nExec   : checkMesh -case . -writeAllFields\nDate   : Nov 04 2026\nTime   : 19:03:09\nHost   : 71e06ec9a9f5\nPID    : 227\nI/O    : uncollated\nCase   : /case\nnProcs : 1\ntrapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).\nmemory pool : not available\nfileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)\nallowSystemOperations : Allowing user-supplied system call operations\n\n// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\nCreate time\n\n--> FOAM Warning : \n    From static Foam::instantList Foam::timeSelector::select0(Foam::Time&, const Foam::argList&)\n    in file db/Time/timeSelector.C at line 284\n    No time specified or available, selecting 'constant'\nCreate mesh for time = constant\n\nCheck mesh...\n    Writing mesh quality as fields (aspectRatio cellAspectRatio cellDeterminant cellRegion cellShapes cellVolume cellVolumeRatio cellZone faceWeight faceZone minPyrVolume minTetVolume nonOrthoAngle skewness wallDistance)\n\nTime = constant\n\nMesh stats \n    points:           5\n    internal points:  0\n    faces:            7\n    internal faces:   1\n    cells:            2\n    faces per cell:   4\n    boundary patches: 1\n    point zones:      0\n    face zones:       0\n    cell zones:       1\n\nOverall number of cells of each type:\n    hexahedra:     0\n    prisms:        0\n    wedges:        0\n    pyramids:      0\n    tet wedges:    0\n    tetrahedra:    2\n    polyhedra:     0\n\nChecking topology...\n    Boundary definition OK.\n    Cell to face addressing OK.\n    Point usage OK.\n    Upper triangular ordering OK.\n    Face vertices OK.\n    Number of regions: 1 (OK).\n\nChecking patch topology for multiply connected surfaces...\n    Patch               Faces    Points     Surface topology\n    defaultFaces        6        5        ok (closed singly connected)      \n    \".*\"                6        5        ok (closed singly connected)      \n\n\nChecking faceZone topology for multiply connected surfaces...\n    No faceZones found.\n\nChecking basic cellZone addressing...\n    CellZone            Cells        Points       Volume       BoundingBox\n    cellZone_0          2            5            0.5          (0 0 0) (1 1 1)\n\nChecking basic pointZone addressing...\n    No pointZones found.\n\nChecking geometry...\n    Overall domain bounding box (0 0 0) (1 1 1)\n    Mesh has 3 geometric (non-empty/wedge) directions (1 1 1)\n    Mesh has 3 solution (non-empty) directions (1 1 1)\n    Boundary openness (0 0 0) OK.\n    Max cell openness = 0 OK.\n    Max aspect ratio = 2.08008 OK.\n    Minimum face area = 0.5. Maximum face area = 0.866025.  Face area magnitudes OK.\n    Min volume = 0.166667. Max volume = 0.333333.  Total volume = 0.5.  Cell volumes OK.\n    Mesh non-orthogonality Max: 0 average: 0\n    Non-orthogonality check OK.\n    Face pyramids OK.\n    Max skewness = 0.25 OK.\n    Coupled point location match (average 0) OK.\n\nMesh OK.\n\nWriting fields with mesh quality parameters\n    Writing non-orthogonality (angle) to nonOrthoAngle\n    Writing face interpolation weights (0..0.5) to faceWeight\n    Writing face skewness to skewness\n    Writing cell determinant to cellDeterminant\n    Writing aspect ratio to aspectRatio\n    Writing approximate aspect ratio to cellAspectRatio\n    Writing cell shape (hex, tet etc.) to cellShapes\n    Writing cell volume to cellVolume\n    Writing cell volume ratio to cellVolumeRatio\n    Writing minTetVolume to minTetVolume\n    Writing minPyrVolume to minPyrVolume\n    Writing cell region to cellRegion\n    Writing cell zoning to cellZone\n    Writing face zoning to faceZone\n\nEnd\n\n/*---------------------------------------------------------------------------*\\\n| =========                 |                                                 |\n| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n|  \\\\    /   O peration     | Version:  2512                                  |\n|   \\\\  /    A nd           | Website:  www.openfoam.com                      |\n|    \\\\/     M anipulation  |                                                 |\n\\*---------------------------------------------------------------------------*/\nBuild  : _87ed40d2-20251219 OPENFOAM=2512 version=2512\nArch   : \"LSB;label=32;scalar=64\"\nExec   : checkMesh -case .\nDate   : Nov 04 2026\nTime   : 19:03:10\nHost   : 71e06ec9a9f5\nPID    : 228\nI/O    : uncollated\nCase   : /case\nnProcs : 1\ntrapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).\nmemory pool : not available\nfileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)\nallowSystemOperations : Allowing user-supplied system call operations\n\n// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\nCreate time\n\n--> FOAM Warning : \n    From static Foam::instantList Foam::timeSelector::select0(Foam::Time&, const Foam::argList&)\n    in file db/Time/timeSelector.C at line 284\n    No time specified or available, selecting 'constant'\nCreate mesh for time = constant\n\nCheck mesh...\n\nTime = constant\n\nMesh stats \n    points:           5\n    internal points:  0\n    faces:            7\n    internal faces:   1\n    cells:            2\n    faces per cell:   4\n    boundary patches: 1\n    point zones:      0\n    face zones:       0\n    cell zones:       1\n\nOverall number of cells of each type:\n    hexahedra:     0\n    prisms:        0\n    wedges:        0\n    pyramids:      0\n    tet wedges:    0\n    tetrahedra:    2\n    polyhedra:     0\n\nChecking topology...\n    Boundary definition OK.\n    Cell to face addressing OK.\n    Point usage OK.\n    Upper triangular ordering OK.\n    Face vertices OK.\n    Number of regions: 1 (OK).\n\nChecking patch topology for multiply connected surfaces...\n    Patch               Faces    Points     Surface topology\n    defaultFaces        6        5        ok (closed singly connected)      \n    \".*\"                6        5        ok (closed singly connected)      \n\n\nChecking faceZone topology for multiply connected surfaces...\n    No faceZones found.\n\nChecking basic cellZone addressing...\n    CellZone            Cells        Points       Volume       BoundingBox\n    cellZone_0          2            5            0.5          (0 0 0) (1 1 1)\n\nChecking basic pointZone addressing...\n    No pointZones found.\n\nChecking geometry...\n    Overall domain bounding box (0 0 0) (1 1 1)\n    Mesh has 3 geometric (non-empty/wedge) directions (1 1 1)\n    Mesh has 3 solution (non-empty) directions (1 1 1)\n    Boundary openness (0 0 0) OK.\n    Max cell openness = 0 OK.\n    Max aspect ratio = 2.08008 OK.\n    Minimum face area = 0.5. Maximum face area = 0.866025.  Face area magnitudes OK.\n    Min volume = 0.166667. Max volume = 0.333333.  Total volume = 0.5.  Cell volumes OK.\n    Mesh non-orthogonality Max: 0 average: 0\n    Non-orthogonality check OK.\n    Face pyramids OK.\n    Max skewness = 0.25 OK.\n    Coupled point location match (average 0) OK.\n\nMesh OK.\n\nEnd\n\n",
+    "summary": {
+      "volume": {
+        "min": 0.166667,
+        "max": 0.333333
+      },
+      "maxAspectRatio": 2.08008,
+      "maxSkewness": 0.25,
+      "cellCount": 2,
+      "faceCount": 7,
+      "pointCount": 5
+    }
+  },
+  "polyMesh": {
+    "pointCount": 5,
+    "cellCount": 2,
+    "faceCount": 7,
+    "internalFaceCount": 1
+  },
+  "perCellFields": {
+    "aspectRatio": {
+      "count": 2,
+      "min": 1.65096,
+      "max": 2.08008,
+      "mean": 1.86552
+    },
+    "cellAspectRatio": {
+      "count": 2,
+      "min": 1.5,
+      "max": 1.9618,
+      "mean": 1.7309
+    },
+    "cellDeterminant": {
+      "count": 1,
+      "min": 1.73472e-18,
+      "max": 1.73472e-18,
+      "mean": 1.73472e-18
+    },
+    "cellShapes": {
+      "count": 1,
+      "min": 7,
+      "max": 7,
+      "mean": 7
+    },
+    "cellVolume": {
+      "count": 2,
+      "min": 0.166667,
+      "max": 0.333333,
+      "mean": 0.25
+    },
+    "cellVolumeRatio": {
+      "count": 1,
+      "min": 0.5,
+      "max": 0.5,
+      "mean": 0.5
+    },
+    "faceWeight": {
+      "count": 1,
+      "min": 1,
+      "max": 1,
+      "mean": 1
+    },
+    "minPyrVolume": {
+      "count": 2,
+      "min": 0.0416667,
+      "max": 0.0833333,
+      "mean": 0.0625
+    },
+    "minTetVolume": {
+      "count": 2,
+      "min": 0.0104105,
+      "max": 0.0949514,
+      "mean": 0.052680950000000004
+    },
+    "nonOrthoAngle": {
+      "count": 1,
+      "min": 0,
+      "max": 0,
+      "mean": 0
+    },
+    "skewness": {
+      "count": 2,
+      "min": 6.245e-17,
+      "max": 0.25,
+      "mean": 0.12500000000000003
+    }
+  }
+}
