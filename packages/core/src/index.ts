@@ -36,3 +36,6 @@ export type { CflInputs } from "./checks/flow/cfl.js";
 export { regimeFindings } from "./checks/flow/regime.js";
 
 export { parseGmsh } from "./parsers/gmsh.js";
+
+export { buildAdjacency } from "./geometry/adjacency.js";
+export type { Adjacency } from "./geometry/adjacency.js";

@@ -6,8 +6,8 @@
 // give more, smaller tets.
 //
 // Example:
-//   gmsh bench-cube.geo -3 -format msh41 -clmax 0.075 -o bench-100k.msh
-//   gmsh bench-cube.geo -3 -format msh41 -clmax 0.0335 -o bench-1m.msh
+//   gmsh bench-cube.geo -3 -format msh41 -clmax 0.0355  -o bench-100k.msh
+//   gmsh bench-cube.geo -3 -format msh41 -clmax 0.0165  -o bench-1m.msh
 //
 // See meshes/README.md for the benchmark harness that consumes these files.
 

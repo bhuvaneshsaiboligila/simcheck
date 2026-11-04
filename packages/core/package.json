@@ -19,7 +19,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "bench": "tsc -p tsconfig.bench.json && node bench-dist/bench/parse.bench.js"
+    "bench": "tsc -p tsconfig.bench.json && node bench-dist/bench/pipeline.bench.js"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

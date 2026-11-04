@@ -15,8 +15,8 @@ Generate the two benchmark meshes before running `pnpm --filter core bench`:
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"   # or wherever gmsh is installed
-gmsh bench-cube.geo -3 -format msh41 -clmax 0.0355  -o bench-100k.msh
-gmsh bench-cube.geo -3 -format msh41 -clmax 0.01705 -o bench-1m.msh
+gmsh bench-cube.geo -3 -format msh41 -clmax 0.0355 -o bench-100k.msh
+gmsh bench-cube.geo -3 -format msh41 -clmax 0.0165 -o bench-1m.msh
 ```
 
 These `-clmax` values are tuned by trial to land near the target counts;
@@ -25,6 +25,6 @@ exact counts vary slightly by gmsh version:
 | File | clmax | tets (actual) |
 | --- | --- | --- |
 | `bench-100k.msh` | 0.0355 | 110,841 |
-| `bench-1m.msh` | 0.01705 | 919,235 |
+| `bench-1m.msh` | 0.0165 | 1,016,007 |
 
 Both local-only files stay in this directory and are gitignored.

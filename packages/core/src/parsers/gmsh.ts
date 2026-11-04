@@ -432,18 +432,32 @@ function parseNodesV41(reader: ByteReader): ParsedNodes {
 }
 
 // ---------------------------------------------------------------------------
-// $Elements: collected into parallel arrays (one entry per element), kept
-// generic over every element dimension/type present so the highest-dimension
-// filter and the pure-tet check can be applied afterwards.
+// $Elements: both formats declare the exact total element count upfront
+// (v2.2: the count on the first line of $Elements, which is also the loop
+// bound; v4.1: the second header field, summed exactly across entity
+// blocks for a well-formed file). That upfront count sizes flat typed-array
+// scratch buffers once, with no push()-driven growth or arrays of numbers
+// during the scan (CLAUDE.md / decisions.md #11).
+//
+// Only dimension-3 linear-tet elements (Gmsh type 4) are ever kept: v0.2 is
+// pure-tet only, so a dimension-3 element of any other type makes the whole
+// file invalid regardless of what else it contains (PLAN.md §3), and lower-
+// dimension elements (surface/edge/point, typically the majority of
+// elements in a real boundary-layer mesh) are never part of the output
+// Mesh. Both cases are therefore handled during the scan itself: a bad
+// dim-3 type fails immediately with the same message buildMesh would have
+// produced after a full scan, and non-dim-3 elements have their node
+// indices read (to stay positioned correctly in the byte stream) and
+// discarded, never written to a scratch array. This keeps the node-index
+// scratch buffer sized at exactly `headerCount * 4` (one linear tet's worth
+// per element), not a generic per-type node-count bound.
 // ---------------------------------------------------------------------------
 
 interface ParsedElements {
-  dims: number[];
-  types: number[];
-  elementTags: number[];
-  physicals: number[];
-  nodeOffsets: number[]; // length = elements + 1
-  nodesFlat: number[]; // raw Gmsh node tags, concatenated per element
+  count: number; // number of kept (dimension-3, linear-tet) elements
+  elementTags: Int32Array; // length = count
+  physicals: Int32Array; // length = count
+  nodesFlat: Int32Array; // raw Gmsh node tags, 4 per kept element
 }
 
 function nodeCountForType(type: number): number {
@@ -463,15 +477,13 @@ function dimForType(type: number): number {
 }
 
 function parseElementsV22(reader: ByteReader): ParsedElements {
-  const count = reader.readInt();
-  const dims: number[] = [];
-  const types: number[] = [];
-  const elementTags: number[] = [];
-  const physicals: number[] = [];
-  const nodeOffsets: number[] = [0];
-  const nodesFlat: number[] = [];
+  const headerCount = reader.readInt();
+  const elementTags = new Int32Array(headerCount);
+  const physicals = new Int32Array(headerCount);
+  const nodesFlat = new Int32Array(headerCount * 4);
+  let kept = 0;
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < headerCount; i++) {
     const id = reader.readInt();
     const type = reader.readInt();
     const numTags = reader.readInt();
@@ -483,17 +495,33 @@ function parseElementsV22(reader: ByteReader): ParsedElements {
     }
 
     const nodeCount = nodeCountForType(type);
-    for (let n = 0; n < nodeCount; n++) nodesFlat.push(reader.readInt());
+    const dim = dimForType(type);
 
-    dims.push(dimForType(type));
-    types.push(type);
-    elementTags.push(id);
-    physicals.push(physical);
-    nodeOffsets.push(nodesFlat.length);
+    if (dim !== 3) {
+      // Not part of the output Mesh (surface/edge/point element): consume
+      // its node indices to stay correctly positioned, discard them.
+      for (let n = 0; n < nodeCount; n++) reader.readInt();
+      continue;
+    }
+    if (type !== LINEAR_TET_TYPE) {
+      fail("elements", "Only pure tetrahedral meshes are supported in v0.2.");
+    }
+
+    for (let n = 0; n < 4; n++) {
+      nodesFlat[kept * 4 + n] = reader.readInt();
+    }
+    elementTags[kept] = id;
+    physicals[kept] = physical;
+    kept++;
   }
 
   expectEndSection(reader, "Elements");
-  return { dims, types, elementTags, physicals, nodeOffsets, nodesFlat };
+  return {
+    count: kept,
+    elementTags: elementTags.slice(0, kept),
+    physicals: physicals.slice(0, kept),
+    nodesFlat: nodesFlat.slice(0, kept * 4),
+  };
 }
 
 function parseElementsV41(
@@ -501,16 +529,36 @@ function parseElementsV41(
   entityPhysical: Map<number, number>[],
 ): ParsedElements {
   const numEntityBlocks = reader.readInt();
-  reader.readInt(); // total element count, unused (we grow arrays as we go)
+  const totalHint = reader.readInt(); // sizes scratch buffers up front
   reader.readInt(); // minElementTag, unused
   reader.readInt(); // maxElementTag, unused
 
-  const dims: number[] = [];
-  const types: number[] = [];
-  const elementTags: number[] = [];
-  const physicals: number[] = [];
-  const nodeOffsets: number[] = [0];
-  const nodesFlat: number[] = [];
+  let capacity = totalHint > 0 ? totalHint : 0;
+  let elementTags = new Int32Array(capacity);
+  let physicals = new Int32Array(capacity);
+  let nodesFlat = new Int32Array(capacity * 4);
+  let kept = 0;
+
+  // The v4.1 header's total-element-count hint is exact for well-formed
+  // files (it is the sum of every block's declared size), so this never
+  // runs in practice. It exists only so a malformed file (hint smaller
+  // than the blocks' actual total) grows the scratch buffers instead of
+  // silently losing data past the end of a fixed-size typed array.
+  function ensureCapacity(need: number): void {
+    if (need <= capacity) return;
+    let newCapacity = capacity > 0 ? capacity : need;
+    while (newCapacity < need) newCapacity *= 2;
+    const newTags = new Int32Array(newCapacity);
+    newTags.set(elementTags.subarray(0, kept));
+    const newPhysicals = new Int32Array(newCapacity);
+    newPhysicals.set(physicals.subarray(0, kept));
+    const newNodesFlat = new Int32Array(newCapacity * 4);
+    newNodesFlat.set(nodesFlat.subarray(0, kept * 4));
+    elementTags = newTags;
+    physicals = newPhysicals;
+    nodesFlat = newNodesFlat;
+    capacity = newCapacity;
+  }
 
   for (let block = 0; block < numEntityBlocks; block++) {
     const entityDim = reader.readInt();
@@ -521,20 +569,37 @@ function parseElementsV41(
     const nodeCount = nodeCountForType(elementType);
     const physical = entityPhysical[entityDim]?.get(entityTag) ?? 0;
 
+    if (entityDim !== 3) {
+      for (let e = 0; e < numInBlock; e++) {
+        reader.readInt(); // tag
+        for (let n = 0; n < nodeCount; n++) reader.readInt();
+      }
+      continue;
+    }
+
+    if (elementType !== LINEAR_TET_TYPE) {
+      fail("elements", "Only pure tetrahedral meshes are supported in v0.2.");
+    }
+
+    ensureCapacity(kept + numInBlock);
     for (let e = 0; e < numInBlock; e++) {
       const tag = reader.readInt();
-      for (let n = 0; n < nodeCount; n++) nodesFlat.push(reader.readInt());
-
-      dims.push(entityDim);
-      types.push(elementType);
-      elementTags.push(tag);
-      physicals.push(physical);
-      nodeOffsets.push(nodesFlat.length);
+      for (let n = 0; n < 4; n++) {
+        nodesFlat[kept * 4 + n] = reader.readInt();
+      }
+      elementTags[kept] = tag;
+      physicals[kept] = physical;
+      kept++;
     }
   }
 
   expectEndSection(reader, "Elements");
-  return { dims, types, elementTags, physicals, nodeOffsets, nodesFlat };
+  return {
+    count: kept,
+    elementTags: elementTags.slice(0, kept),
+    physicals: physicals.slice(0, kept),
+    nodesFlat: nodesFlat.slice(0, kept * 4),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -542,45 +607,24 @@ function parseElementsV41(
 // ---------------------------------------------------------------------------
 
 function buildMesh(nodes: ParsedNodes, elements: ParsedElements): Mesh {
-  const elementCount = elements.dims.length;
+  const cellCount = elements.count;
 
-  let maxDim = -1;
-  for (let i = 0; i < elementCount; i++) {
-    const d = elements.dims[i]!;
-    if (d > maxDim) maxDim = d;
-  }
-
-  if (maxDim !== 3) {
+  // parseElementsV22/V41 already filtered to dimension-3 linear tets (and
+  // failed fast on any other dimension-3 type), so an empty kept set here
+  // means the file had no dimension-3 elements at all.
+  if (cellCount === 0) {
     fail(
       "elements",
       "No volume cells found. Did you add a volume physical group in Gmsh?",
     );
   }
 
-  let cellCount = 0;
-  for (let i = 0; i < elementCount; i++) {
-    if (elements.dims[i] === maxDim) cellCount++;
-  }
-
-  for (let i = 0; i < elementCount; i++) {
-    if (elements.dims[i] === maxDim && elements.types[i] !== LINEAR_TET_TYPE) {
-      fail("elements", "Only pure tetrahedral meshes are supported in v0.2.");
-    }
-  }
-
   const conn = new Int32Array(cellCount * 4);
-  const tags = new Int32Array(cellCount);
-  const physical = new Int32Array(cellCount);
-
   const { tagToIndex, minTag } = nodes;
-  let cursor = 0;
-  for (let i = 0; i < elementCount; i++) {
-    if (elements.dims[i] !== maxDim) continue;
 
-    const start = elements.nodeOffsets[i]!;
-    const end = elements.nodeOffsets[i + 1]!;
-    for (let k = start; k < end; k++) {
-      const gmshTag = elements.nodesFlat[k]!;
+  for (let i = 0; i < cellCount; i++) {
+    for (let k = 0; k < 4; k++) {
+      const gmshTag = elements.nodesFlat[i * 4 + k]!;
       const localIndex = gmshTag - minTag;
       const nodeIndex =
         localIndex >= 0 && localIndex < tagToIndex.length ? tagToIndex[localIndex]! : -1;
@@ -590,14 +634,11 @@ function buildMesh(nodes: ParsedNodes, elements: ParsedElements): Mesh {
           `element ${elements.elementTags[i]} references node tag ${gmshTag}, which was not found in $Nodes.`,
         );
       }
-      conn[cursor * 4 + (k - start)] = nodeIndex;
+      conn[i * 4 + k] = nodeIndex;
     }
-    tags[cursor] = elements.elementTags[i]!;
-    physical[cursor] = elements.physicals[i]!;
-    cursor++;
   }
 
-  return { coords: nodes.coords, conn, tags, physical };
+  return { coords: nodes.coords, conn, tags: elements.elementTags, physical: elements.physicals };
 }
 
 function parseGmshInner(chunks: Uint8Array[]): Mesh {
