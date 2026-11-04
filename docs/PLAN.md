@@ -154,10 +154,10 @@ Re_x = ρ U x / μ
 
 **x** is the distance from the leading edge where the user wants the target y+ (default: the full length L). Shown with the result: "y+ will be higher upstream of x."
 
-**Wall distance for a target y+** (turbulent flat plate, 1/7-power law, White, *verify*):
+**Wall distance for a target y+** (turbulent flat plate, 1/7-power law, White, *Fluid Mechanics*, turbulent flat-plate / 1/7-power-law section — coefficient confirmed as 0.027, exact edition/equation number still *verify*):
 
 ```
-Cf = 0.026 · Re_x^(-1/7)
+Cf = 0.027 · Re_x^(-1/7)
 τw = ½ · Cf · ρ · U²
 uτ = sqrt(τw / ρ)
 y  = y+ · μ / (ρ · uτ)
