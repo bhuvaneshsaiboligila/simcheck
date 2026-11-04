@@ -8,6 +8,8 @@ A free, open-source, browser-based pre-flight checker for CFD setups. No server,
 
 **v0.2 (in progress): mesh checker** for pure-tet 3D Gmsh meshes, verified against OpenFOAM's `checkMesh`. See [`docs/PLAN.md`](docs/PLAN.md).
 
+What's verified so far: min/max/mean of volume, aspect ratio, non-orthogonality and skewness match OpenFOAM v2512 checkMesh to 1e-6 relative on the test meshes (see [`docs/thresholds.md`](docs/thresholds.md)). The browser UI, worker, and per-mesh findings are not built yet.
+
 ## Why
 
 Most y+ calculators stop at a single number. SimCheck:
