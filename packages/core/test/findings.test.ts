@@ -239,11 +239,11 @@ describe("findings - higher-order tet disclosure", () => {
     expect(elementOrderFindings(mesh)).toEqual([]);
   });
 
-  it("a mesh with order-3 (20-node) tets gets exactly one pass-severity disclosure", () => {
+  it("a mesh with order-3 (20-node) tets gets exactly one info-severity disclosure", () => {
     const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "higher-order-tet20.msh"))));
     const findings = elementOrderFindings(mesh);
     expect(findings).toHaveLength(1);
-    expect(findings[0]!.severity).toBe("pass");
+    expect(findings[0]!.severity).toBe("info");
     expect(findings[0]!.message).toBe(
       "Higher-order tets (20 nodes): metrics use the 4 corner nodes, i.e. the straight-sided cell a finite-volume solver sees; curvature is not checked.",
     );
@@ -317,7 +317,9 @@ describe("findings - aspect ratio excludes inverted-cell sentinel values (decisi
     expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(0);
 
     expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]!.severity).toBe("info");
     expect(r.findings[0]!.message).toBe("No cells to check: all 1 cells are inverted — see Volume.");
+    expect(r.findings[1]!.severity).toBe("info");
     expect(r.findings[1]!.title).toBe("Inverted cells excluded");
     expect(r.findings[1]!.message).toBe("1 inverted cells excluded — see Volume.");
   });
@@ -336,6 +338,7 @@ describe("findings - aspect ratio excludes inverted-cell sentinel values (decisi
     expect(r.findings).toHaveLength(2);
     expect(r.findings[0]!.severity).toBe("pass");
     expect(r.findings[0]!.message).toBe("All 1 cells have aspect ratio below checkMesh's 1000 threshold (max 1.651).");
+    expect(r.findings[1]!.severity).toBe("info");
     expect(r.findings[1]!.title).toBe("Inverted cells excluded");
     expect(r.findings[1]!.message).toBe("1 inverted cells excluded — see Volume.");
   });
@@ -394,6 +397,7 @@ describe("findings - non-orthogonality excludes faces next to inverted cells (de
     // No fail-tier finding: 0 cells >= 90°.
     expect(r.findings.some((f) => f.title === "Non-orthogonality errors")).toBe(false);
 
+    expect(r.findings[1]!.severity).toBe("info");
     expect(r.findings[1]!.title).toBe("Faces next to inverted cells excluded");
     expect(r.findings[1]!.message).toBe("15412 faces next to inverted cells excluded — see Volume.");
 
@@ -425,6 +429,7 @@ describe("findings - non-orthogonality excludes faces next to inverted cells (de
     expect(r.max).toBe(0);
     expect(r.findings).toHaveLength(2);
     expect(r.findings[0]!.severity).toBe("pass");
+    expect(r.findings[1]!.severity).toBe("info");
     expect(r.findings[1]!.title).toBe("Faces next to inverted cells excluded");
     expect(r.findings[1]!.message).toBe("4 faces next to inverted cells excluded — see Volume.");
   });
@@ -440,7 +445,7 @@ describe("findings - non-orthogonality excludes faces next to inverted cells (de
     expect(r.worst).toEqual([]);
     expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(0);
     expect(r.findings).toHaveLength(1);
-    expect(r.findings[0]!.severity).toBe("pass");
+    expect(r.findings[0]!.severity).toBe("info");
     expect(r.findings[0]!.message).toBe("Non-orthogonality can't be assessed until inverted cells are fixed.");
   });
 });
@@ -493,4 +498,61 @@ describe("findings - cylinder_3d.msh defect detection (decisions.md #31)", () =>
       expect(result.findings[0]!.message).toContain("4896 of 9792 cells");
     },
   );
+});
+
+describe("findings - volume detects pure node-order reversal (decisions.md #36)", () => {
+  const meshPath = join(MESHES_DIR, "cylinder_3d.msh");
+  const available = existsSync(meshPath);
+
+  (available ? it : it.skip)(
+    "cylinder_3d.msh: every inverted cell matches a valid neighbour's size -- the fix text says so",
+    () => {
+      const mesh = expectMesh(parseGmsh(readBytes(meshPath)));
+      const adjacency = expectAdjacency(buildAdjacency(mesh));
+      const r = volumeFindings(mesh, adjacency);
+
+      expect(r.findings).toHaveLength(1);
+      expect(r.findings[0]!.fix).toBe(
+        "Every inverted cell is the same size as a neighbouring valid cell — this looks like pure node-order reversal (the nodes are just listed in the wrong order), not mesh tangling, so reversing the connectivity of only these cells should fix it without re-meshing. See the worst-cell table for which ones.",
+      );
+    },
+  );
+
+  it("inverted-tet.msh: a single inverted cell with no neighbour at all gets the generic fix text, not the reversal claim", () => {
+    const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "inverted-tet.msh"))));
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = volumeFindings(mesh, adjacency);
+
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.fix).toBe(
+      "Repair or regenerate the mesh around the cells in the worst-cell table; look for reversed elements or duplicate/collapsed nodes.",
+    );
+  });
+
+  it("a mesh with one inverted cell matching a neighbour's size and one that doesn't: generic fix text, not the reversal claim (not EVERY inverted cell matches)", () => {
+    // Tet A (valid, volume 1/6), tet B (inverted, same size as A but far
+    // apart -- no shared face, so no neighbour to match against), and a
+    // third, differently-sized, also-disconnected inverted tet C. Neither
+    // inverted cell has ANY neighbour at all (let alone a matching one),
+    // so the reversal claim must not appear.
+    const mesh: Mesh = {
+      coords: new Float64Array([
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, // tet A: positive, volume 1/6
+        10, 0, 0, 11, 0, 0, 10, 1, 0, 10, 0, 1, // tet B: inverted (swapped), volume -1/6
+        20, 0, 0, 23, 0, 0, 20, 3, 0, 20, 0, 3, // tet C: inverted (swapped), volume -4.5
+      ]),
+      conn: new Int32Array([0, 1, 2, 3, 5, 4, 6, 7, 9, 8, 10, 11]),
+      tags: new Int32Array([1, 2, 3]),
+      physical: new Int32Array([1, 1, 1]),
+      cellNodeCount: new Int32Array([4, 4, 4]),
+    };
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = volumeFindings(mesh, adjacency);
+
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.message).toContain("2 of 3 cells");
+    expect(r.findings[0]!.fix).toBe(
+      "Repair or regenerate the mesh around the cells in the worst-cell table; look for reversed elements or duplicate/collapsed nodes.",
+    );
+  });
 });

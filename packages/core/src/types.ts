@@ -1,7 +1,14 @@
 // Core shared types. See PLAN.md §6 for Finding/Severity/SolverType,
 // and docs/flow-spec.md §3.0 for InputError/Result.
 
-export type Severity = "pass" | "warn" | "fail";
+// "info" (decisions.md #35) is for disclosures that aren't a verdict on
+// quality at all -- a note about what was excluded and why, or about a
+// mesh feature (higher-order cells) that changes how a check works, not
+// whether it passed. Using "pass" for these (as decisions.md #24/#32/#34
+// originally did, to avoid widening this type for one disclosure note)
+// reads as a green checkmark for something that isn't actually a clean
+// result; "info" gets a neutral grey badge instead.
+export type Severity = "pass" | "warn" | "fail" | "info";
 
 export type SolverType = "cell-centred" | "vertex-based";
 

@@ -49,16 +49,16 @@ describe("regimeFindings", () => {
   it("Case D (Re = 5.31232e6): only the always-on flat-plate note, no warnings", () => {
     const findings = regimeFindings(5.31232e6);
     expect(findings).toHaveLength(1);
-    expect(findings[0]?.severity).toBe("pass");
+    expect(findings[0]?.severity).toBe("info");
     expect(findings[0]?.title).toBe("Flat-plate estimate");
   });
 
-  it("always includes the pass-severity flat-plate disclosure note", () => {
+  it("always includes the info-severity flat-plate disclosure note", () => {
     for (const re of [1e3, 6e5, 1e7]) {
       const findings = regimeFindings(re);
       const note = findings.find((f) => f.title === "Flat-plate estimate");
       expect(note).toBeDefined();
-      expect(note?.severity).toBe("pass");
+      expect(note?.severity).toBe("info");
     }
   });
 });

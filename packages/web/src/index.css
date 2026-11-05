@@ -4,6 +4,7 @@
   --pass: #1f7a3d;
   --warn: #9a6a00;
   --fail: #b3261e;
+  --info: #6b6b6b;
   --border: #d9d9d9;
   --bg-muted: #f6f6f7;
 }
@@ -171,6 +172,10 @@ main {
   border-left-color: var(--pass);
 }
 
+.finding-info {
+  border-left-color: var(--info);
+}
+
 .finding-title {
   font-weight: 600;
   margin: 0 0 0.25rem;
@@ -197,6 +202,10 @@ main {
 
 .severity-fail {
   background: var(--fail);
+}
+
+.severity-info {
+  background: var(--info);
 }
 
 .finding-message,

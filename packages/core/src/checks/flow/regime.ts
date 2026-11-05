@@ -32,7 +32,7 @@ export function regimeFindings(reynoldsX: number): Finding[] {
   }
 
   findings.push({
-    severity: "pass",
+    severity: "info",
     title: "Flat-plate estimate",
     message: "This result uses a turbulent flat-plate estimate.",
     why: "For internal or bluff-body flows, check y+ after the first run; the correlation is not exact for your geometry.",

@@ -2,9 +2,8 @@
 // Not a quality metric like volume/aspectRatio/nonOrthogonality/skewness --
 // just an always-informative note when the mesh has any tet of order > 1,
 // so a user isn't surprised that curved cells are checked on their straight
-// corner-node approximation. Severity is "pass" (green badge), not a new
-// Severity value -- same choice as decisions.md #24's flat-plate disclosure,
-// to avoid widening Finding.severity for one disclosure note.
+// corner-node approximation. Severity is "info" (grey badge, decisions.md
+// #35) -- this isn't a verdict on quality, just a disclosure.
 
 import type { Finding, Mesh } from "../../types.js";
 
@@ -30,7 +29,7 @@ export function elementOrderFindings(mesh: Mesh): Finding[] {
 
   return [
     {
-      severity: "pass",
+      severity: "info",
       title: "Higher-order tets",
       message: `Higher-order tets (${label}): metrics use the 4 corner nodes, i.e. the straight-sided cell a finite-volume solver sees; curvature is not checked.`,
       why: "OpenFOAM, Fluent and SU2 all run on straight-sided (linear) cells internally, so this is the geometry that actually matters for mesh quality — but it means a curved cell that looks fine in Gmsh's higher-order view can still fail a quality check once linearised, and SimCheck can't warn about curvature itself.",

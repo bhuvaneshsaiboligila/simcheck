@@ -74,7 +74,7 @@ export function aspectRatioFindings(mesh: Mesh, adjacency: Adjacency): MetricRes
     // Every cell is inverted -- nothing left to measure an aspect ratio
     // against. Volume's own finding already reports all of them.
     findings.push({
-      severity: "pass",
+      severity: "info",
       title: "Cell aspect ratio",
       message: `No cells to check: all ${total} cells are inverted — see Volume.`,
       why: "Aspect ratio is only meaningful for a cell with positive volume.",
@@ -104,7 +104,7 @@ export function aspectRatioFindings(mesh: Mesh, adjacency: Adjacency): MetricRes
 
   if (invertedCount > 0) {
     findings.push({
-      severity: "pass",
+      severity: "info",
       title: "Inverted cells excluded",
       message: `${invertedCount} inverted cells excluded — see Volume.`,
       why: "An inverted cell's aspect ratio is checkMesh's own sentinel value (its formula divides by volume, so a non-positive volume gives a huge, physically meaningless number), not a second real defect — Volume already reports these cells.",

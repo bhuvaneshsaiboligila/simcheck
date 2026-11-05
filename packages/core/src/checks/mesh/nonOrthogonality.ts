@@ -85,7 +85,7 @@ export function nonOrthogonalityFindings(mesh: Mesh, adjacency: Adjacency): Metr
 
   if (assessableCount === 0) {
     findings.push({
-      severity: "pass",
+      severity: "info",
       title: "Face non-orthogonality",
       message: "Non-orthogonality can't be assessed until inverted cells are fixed.",
       why: "Every remaining face touches an inverted cell, whose flipped corner order makes its face normal point the wrong way — any angle computed from it would be close to the complementary (wrong) value, not just imprecise. See Volume for the inverted cells themselves.",
@@ -171,7 +171,7 @@ export function nonOrthogonalityFindings(mesh: Mesh, adjacency: Adjacency): Metr
 
   if (excludedFaceCount > 0) {
     findings.push({
-      severity: "pass",
+      severity: "info",
       title: "Faces next to inverted cells excluded",
       message: `${excludedFaceCount} faces next to inverted cells excluded — see Volume.`,
       why: "A face touching an inverted cell has a flipped face normal, so its angle is close to the wrong (complementary) value, not a real measurement — Volume already reports the inverted cells themselves.",
