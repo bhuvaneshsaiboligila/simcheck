@@ -20,6 +20,21 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Install gmsh
+        run: sudo apt-get update && sudo apt-get install -y gmsh
+
+      - name: Generate benchmark meshes
+        # meshes/README.md's documented commands; these two .msh files are
+        # gitignored (regenerated, not committed) and feed
+        # packages/core/test/metrics.test.ts and findings.test.ts's
+        # milestone-7/8 gate assertions, which it.skip themselves when the
+        # files are absent -- without this step CI silently skips those
+        # tests instead of running them.
+        run: |
+          cd meshes
+          gmsh bench-cube.geo -3 -format msh41 -clmax 0.0355 -o bench-100k.msh
+          gmsh bench-cube.geo -3 -format msh41 -clmax 0.0165 -o bench-1m.msh
+
       - run: pnpm -r typecheck
 
       - run: pnpm test
