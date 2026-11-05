@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { InputError } from "@simcheck/core";
 import type { MeshCheckResult, WorkerRequest, WorkerResponse } from "../../worker/messages";
+import { buildMeshReport, buildWorstCellsCsv, downloadFile, reportBaseName } from "../../lib/meshReport";
 import { ErrorNotice } from "../ErrorNotice";
 import { FindingsList } from "../FindingsList";
 import { DropZone } from "./DropZone";
@@ -67,6 +68,17 @@ export function MeshCheckerSection() {
     [getWorker],
   );
 
+  const handleDownloadJson = useCallback(() => {
+    if (!result || !fileName) return;
+    const report = buildMeshReport(fileName, result);
+    downloadFile(`${reportBaseName(fileName)}-report.json`, JSON.stringify(report, null, 2), "application/json");
+  }, [result, fileName]);
+
+  const handleDownloadCsv = useCallback(() => {
+    if (!result || !fileName) return;
+    downloadFile(`${reportBaseName(fileName)}-worst-cells.csv`, buildWorstCellsCsv(result), "text/csv");
+  }, [result, fileName]);
+
   return (
     <section className="panel mesh-panel">
       <h2>Mesh checker</h2>
@@ -83,9 +95,19 @@ export function MeshCheckerSection() {
 
       {status === "done" && result && (
         <div className="mesh-results">
-          <p className="mesh-summary">
-            <strong>{result.cellCount.toLocaleString()}</strong> tetrahedral cells checked.
-          </p>
+          <div className="mesh-summary-row">
+            <p className="mesh-summary">
+              <strong>{result.cellCount.toLocaleString()}</strong> tetrahedral cells checked.
+            </p>
+            <div className="mesh-download-buttons">
+              <button type="button" className="fill-button" onClick={handleDownloadJson}>
+                Download report (JSON)
+              </button>
+              <button type="button" className="fill-button" onClick={handleDownloadCsv}>
+                Download worst cells (CSV)
+              </button>
+            </div>
+          </div>
           <FindingsList findings={result.notes} />
           <MetricPanel title="Volume" metric={result.volume} hasHistogram={false} />
           <MetricPanel title="Aspect ratio" metric={result.aspectRatio} hasHistogram />

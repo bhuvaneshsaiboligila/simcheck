@@ -270,6 +270,109 @@ describe("findings - higher-order tet disclosure", () => {
   });
 });
 
+/**
+ * One normal tet (positive volume, aspect ratio ~1.65) and one inverted
+ * tet (negative volume, same corner coordinates with the first two nodes
+ * swapped -- same pattern as tests/fixtures/inverted-tet.msh), placed far
+ * apart so they share no nodes/faces.
+ */
+function oneNormalOneInvertedMesh(): Mesh {
+  const coords = new Float64Array([
+    0, 0, 0, // 0
+    1, 0, 0, // 1
+    0, 1, 0, // 2
+    0, 0, 1, // 3
+    10, 0, 0, // 4
+    11, 0, 0, // 5
+    10, 1, 0, // 6
+    10, 0, 1, // 7
+  ]);
+  const conn = new Int32Array([
+    0, 1, 2, 3, // tet A: positive volume
+    5, 4, 6, 7, // tet B: first two swapped -> negative volume
+  ]);
+  return {
+    coords,
+    conn,
+    tags: new Int32Array([1, 2]),
+    physical: new Int32Array([1, 1]),
+    cellNodeCount: new Int32Array([4, 4]),
+  };
+}
+
+describe("findings - aspect ratio excludes inverted-cell sentinel values (decisions.md #32)", () => {
+  it("inverted-tet.msh (all cells inverted): no sentinel in min/max/histogram, explicit note", () => {
+    const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "inverted-tet.msh"))));
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = aspectRatioFindings(mesh, adjacency);
+
+    expect(r.min).toBe(0);
+    expect(r.max).toBe(0);
+    expect(r.mean).toBe(0);
+    expect(r.worst).toEqual([]);
+    expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(0);
+
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]!.message).toBe("No cells to check: all 1 cells are inverted — see Volume.");
+    expect(r.findings[1]!.title).toBe("Inverted cells excluded");
+    expect(r.findings[1]!.message).toBe("1 inverted cells excluded — see Volume.");
+  });
+
+  it("one normal + one inverted cell: the inverted cell's sentinel never reaches min/max/histogram/worst/count", () => {
+    const mesh = oneNormalOneInvertedMesh();
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = aspectRatioFindings(mesh, adjacency);
+
+    // The normal cell's real aspect ratio (~1.65), not a ~1e+98 sentinel.
+    expect(r.max).toBeLessThan(10);
+    expect(r.min).toBeCloseTo(r.max, 6); // only one valid cell, so min === max
+    expect(r.worst).toEqual([]); // 1.65 is nowhere near the 1000 threshold
+    expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(1); // only the valid cell is binned
+
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]!.severity).toBe("pass");
+    expect(r.findings[0]!.message).toBe("All 1 cells have aspect ratio below checkMesh's 1000 threshold (max 1.651).");
+    expect(r.findings[1]!.title).toBe("Inverted cells excluded");
+    expect(r.findings[1]!.message).toBe("1 inverted cells excluded — see Volume.");
+  });
+
+  it("a mesh with no inverted cells gets no 'Inverted cells excluded' note", () => {
+    const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "single-tet.msh"))));
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = aspectRatioFindings(mesh, adjacency);
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings.some((f) => f.title === "Inverted cells excluded")).toBe(false);
+  });
+
+  it("non-orthogonality and skewness do NOT need the same exclusion -- confirmed no sentinel values on cylinder_3d.msh", () => {
+    const meshPath = join(MESHES_DIR, "cylinder_3d.msh");
+    if (!existsSync(meshPath)) return; // gitignored, same skip pattern as elsewhere in this file
+    const mesh = expectMesh(parseGmsh(readBytes(meshPath)));
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+
+    const nonOrtho = nonOrthogonalityFindings(mesh, adjacency);
+    const skew = skewnessFindings(mesh, adjacency);
+
+    // Mathematically bounded regardless of cell orientation: nonOrthoAngle
+    // is an arccosine (0-180°), skewness has no volume term. Neither
+    // formula has a division-by-volume sentinel mechanism, so even with
+    // ~4896 genuinely inverted cells in this mesh, values stay in ordinary
+    // ranges (confirmed by direct computation: non-orthogonality ~99-177°,
+    // skewness ~0.43-0.63) -- nowhere near aspect ratio's ~1e+98-scale
+    // sentinel. The bounds below are deliberately looser than those
+    // measured values (not hardcoding an exact number that could break on
+    // an unrelated mesh regeneration), but still tight enough that only a
+    // genuinely bounded, non-sentinel result can pass -- a vacuous
+    // "nonOrtho.max <= 180" alone would pass even on an empty or
+    // all-clean mesh, so the real evidence here is the upper bound being
+    // nowhere near astronomical.
+    expect(nonOrtho.max).toBeGreaterThan(50); // real, non-degenerate angles are present
+    expect(nonOrtho.max).toBeLessThan(1000); // nowhere near a sentinel
+    expect(skew.max).toBeGreaterThan(0.1); // real, non-degenerate skewness is present
+    expect(skew.max).toBeLessThan(1000); // nowhere near a sentinel
+  });
+});
+
 describe("findings - cylinder_3d.msh defect detection (decisions.md #31)", () => {
   // meshes/cylinder_3d.msh is a real, externally-sourced higher-order
   // (type 29) tet mesh with a genuine per-cell orientation defect baked

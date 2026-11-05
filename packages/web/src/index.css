@@ -296,9 +296,28 @@ main {
   margin: 0.35rem 0 0;
 }
 
+.mesh-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
 .mesh-summary {
   font-size: 0.95rem;
-  margin: 0 0 1rem;
+  margin: 0;
+}
+
+.mesh-download-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mesh-download-buttons .fill-button {
+  margin: 0;
 }
 
 .metric-panel {

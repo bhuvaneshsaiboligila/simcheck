@@ -1,5 +1,10 @@
 export const VERSION = "0.1.0";
 
+/** ESI/OpenCFD OpenFOAM version pinned for the mesh-checker reference
+ * pipeline (decisions.md #25) — the checkMesh version all mesh metrics
+ * are verified against. */
+export const OPENFOAM_REFERENCE_VERSION = "v2512";
+
 export type {
   Severity,
   SolverType,
