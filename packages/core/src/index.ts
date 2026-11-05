@@ -58,3 +58,4 @@ export { volumeFindings } from "./checks/mesh/volume.js";
 export { aspectRatioFindings } from "./checks/mesh/aspectRatio.js";
 export { nonOrthogonalityFindings } from "./checks/mesh/nonOrthogonality.js";
 export { skewnessFindings } from "./checks/mesh/skewness.js";
+export { elementOrderFindings } from "./checks/mesh/elementOrder.js";

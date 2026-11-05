@@ -68,8 +68,28 @@ const ELEMENT_NODE_COUNT: Readonly<Record<number, number>> = {
   31: 56, 92: 64, 93: 125,
 };
 
-const LINEAR_TET_TYPE = 4;
-const LINEAR_TRIANGLE_TYPE = 2;
+// Tetrahedra of every order Gmsh defines (refs/gmsh/doc/texinfo/gmsh.texi
+// "MSH file format" element type list): 4 = linear (order 1, 4 nodes),
+// 11 = order 2 (10 nodes), 29/30/31 = orders 3/4/5 (20/35/56 nodes). v0.2
+// accepts a tet of any of these orders (decisions.md #9 revised) -- other
+// dimension-3 types (prism/hex/pyramid, of any order) are still rejected.
+//
+// Gmsh's node-ordering convention (refs/gmsh/doc/texinfo/gmsh.texi "Node
+// ordering", both the low-order diagrams and the general "High-order
+// elements" section: "The nodes of an element of order p are ordered with
+// respect to its corners... 1. the corners; 2. the nodes inside the
+// edges...") puts the 4 corner nodes first for every one of these types,
+// regardless of order -- so the first 4 entries of any tet element's node
+// list are always its corners, and everything after that (mid-edge,
+// mid-face, interior nodes) can simply be read past and discarded for a
+// pure-corner (straight-sided) Mesh.
+const TET_TYPES: ReadonlySet<number> = new Set([4, 11, 29, 30, 31]);
+
+// Triangles of every order Gmsh defines (same source as above), used only
+// to word the "this is a 2D mesh" rejection message precisely ("N
+// triangles" rather than a vaguer "N 2D elements") when a file's only
+// elements are higher-order surface triangles, not just linear ones.
+const TRIANGLE_TYPES: ReadonlySet<number> = new Set([2, 9, 20, 21, 22, 23, 24, 25]);
 
 // ---------------------------------------------------------------------------
 // Parse errors: thrown internally, caught once at the top of parseGmsh() and
@@ -455,10 +475,11 @@ function parseNodesV41(reader: ByteReader): ParsedNodes {
 // ---------------------------------------------------------------------------
 
 interface ParsedElements {
-  count: number; // number of kept (dimension-3, linear-tet) elements
+  count: number; // number of kept (dimension-3, tet-of-any-order) elements
   elementTags: Int32Array; // length = count
   physicals: Int32Array; // length = count
-  nodesFlat: Int32Array; // raw Gmsh node tags, 4 per kept element
+  nodesFlat: Int32Array; // raw Gmsh node tags, 4 corner nodes per kept element
+  cellNodeCount: Int32Array; // original per-element node count (4/10/20/35/56), length = count
   // Counts of discarded lower-dimension elements, O(1) extra state (not
   // per-element storage, decisions.md #11 unaffected) kept only so a file
   // with no dimension-3 elements at all can be told apart from one with no
@@ -468,7 +489,7 @@ interface ParsedElements {
   dim0Count: number;
   dim1Count: number;
   dim2Count: number;
-  dim2TriangleCount: number; // subset of dim2Count that is specifically LINEAR_TRIANGLE_TYPE
+  dim2TriangleCount: number; // subset of dim2Count that is a type in TRIANGLE_TYPES
 }
 
 function nodeCountForType(type: number): number {
@@ -492,6 +513,7 @@ function parseElementsV22(reader: ByteReader): ParsedElements {
   const elementTags = new Int32Array(headerCount);
   const physicals = new Int32Array(headerCount);
   const nodesFlat = new Int32Array(headerCount * 4);
+  const cellNodeCount = new Int32Array(headerCount);
   let kept = 0;
   let dim0Count = 0;
   let dim1Count = 0;
@@ -520,19 +542,25 @@ function parseElementsV22(reader: ByteReader): ParsedElements {
       else if (dim === 1) dim1Count++;
       else if (dim === 2) {
         dim2Count++;
-        if (type === LINEAR_TRIANGLE_TYPE) dim2TriangleCount++;
+        if (TRIANGLE_TYPES.has(type)) dim2TriangleCount++;
       }
       continue;
     }
-    if (type !== LINEAR_TET_TYPE) {
-      fail("elements", "Only pure tetrahedral meshes are supported in v0.2.");
+    if (!TET_TYPES.has(type)) {
+      fail("elements", "Only tetrahedral meshes are supported in v0.2.");
     }
 
+    // Corners first (see TET_TYPES's comment), so only the first 4 of
+    // `nodeCount` node indices are kept; the rest (mid-edge/face/interior
+    // nodes for a higher-order tet) are read to stay correctly positioned
+    // in the byte stream and discarded.
     for (let n = 0; n < 4; n++) {
       nodesFlat[kept * 4 + n] = reader.readInt();
     }
+    for (let n = 4; n < nodeCount; n++) reader.readInt();
     elementTags[kept] = id;
     physicals[kept] = physical;
+    cellNodeCount[kept] = nodeCount;
     kept++;
   }
 
@@ -542,6 +570,7 @@ function parseElementsV22(reader: ByteReader): ParsedElements {
     elementTags: elementTags.slice(0, kept),
     physicals: physicals.slice(0, kept),
     nodesFlat: nodesFlat.slice(0, kept * 4),
+    cellNodeCount: cellNodeCount.slice(0, kept),
     dim0Count,
     dim1Count,
     dim2Count,
@@ -562,6 +591,7 @@ function parseElementsV41(
   let elementTags = new Int32Array(capacity);
   let physicals = new Int32Array(capacity);
   let nodesFlat = new Int32Array(capacity * 4);
+  let cellNodeCount = new Int32Array(capacity);
   let kept = 0;
   let dim0Count = 0;
   let dim1Count = 0;
@@ -583,9 +613,12 @@ function parseElementsV41(
     newPhysicals.set(physicals.subarray(0, kept));
     const newNodesFlat = new Int32Array(newCapacity * 4);
     newNodesFlat.set(nodesFlat.subarray(0, kept * 4));
+    const newCellNodeCount = new Int32Array(newCapacity);
+    newCellNodeCount.set(cellNodeCount.subarray(0, kept));
     elementTags = newTags;
     physicals = newPhysicals;
     nodesFlat = newNodesFlat;
+    cellNodeCount = newCellNodeCount;
     capacity = newCapacity;
   }
 
@@ -607,23 +640,27 @@ function parseElementsV41(
       else if (entityDim === 1) dim1Count += numInBlock;
       else if (entityDim === 2) {
         dim2Count += numInBlock;
-        if (elementType === LINEAR_TRIANGLE_TYPE) dim2TriangleCount += numInBlock;
+        if (TRIANGLE_TYPES.has(elementType)) dim2TriangleCount += numInBlock;
       }
       continue;
     }
 
-    if (elementType !== LINEAR_TET_TYPE) {
-      fail("elements", "Only pure tetrahedral meshes are supported in v0.2.");
+    if (!TET_TYPES.has(elementType)) {
+      fail("elements", "Only tetrahedral meshes are supported in v0.2.");
     }
 
     ensureCapacity(kept + numInBlock);
     for (let e = 0; e < numInBlock; e++) {
       const tag = reader.readInt();
+      // Corners first (see TET_TYPES's comment): keep only the first 4 of
+      // `nodeCount` node indices, read-and-discard the rest.
       for (let n = 0; n < 4; n++) {
         nodesFlat[kept * 4 + n] = reader.readInt();
       }
+      for (let n = 4; n < nodeCount; n++) reader.readInt();
       elementTags[kept] = tag;
       physicals[kept] = physical;
+      cellNodeCount[kept] = nodeCount;
       kept++;
     }
   }
@@ -634,6 +671,7 @@ function parseElementsV41(
     elementTags: elementTags.slice(0, kept),
     physicals: physicals.slice(0, kept),
     nodesFlat: nodesFlat.slice(0, kept * 4),
+    cellNodeCount: cellNodeCount.slice(0, kept),
     dim0Count,
     dim1Count,
     dim2Count,
@@ -681,9 +719,9 @@ function noVolumeCellsMessage(
 function buildMesh(nodes: ParsedNodes, elements: ParsedElements): Mesh {
   const cellCount = elements.count;
 
-  // parseElementsV22/V41 already filtered to dimension-3 linear tets (and
-  // failed fast on any other dimension-3 type), so an empty kept set here
-  // means the file had no dimension-3 elements at all.
+  // parseElementsV22/V41 already filtered to dimension-3 tets (of any
+  // order, and failed fast on any other dimension-3 type), so an empty
+  // kept set here means the file had no dimension-3 elements at all.
   if (cellCount === 0) {
     fail("elements", noVolumeCellsMessage(elements));
   }
@@ -707,7 +745,13 @@ function buildMesh(nodes: ParsedNodes, elements: ParsedElements): Mesh {
     }
   }
 
-  return { coords: nodes.coords, conn, tags: elements.elementTags, physical: elements.physicals };
+  return {
+    coords: nodes.coords,
+    conn,
+    tags: elements.elementTags,
+    physical: elements.physicals,
+    cellNodeCount: elements.cellNodeCount,
+  };
 }
 
 function parseGmshInner(chunks: Uint8Array[]): Mesh {

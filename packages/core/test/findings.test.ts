@@ -1,16 +1,18 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { aspectRatioFindings } from "../src/checks/mesh/aspectRatio.js";
+import { elementOrderFindings } from "../src/checks/mesh/elementOrder.js";
 import { nonOrthogonalityFindings } from "../src/checks/mesh/nonOrthogonality.js";
 import { skewnessFindings } from "../src/checks/mesh/skewness.js";
 import { volumeFindings } from "../src/checks/mesh/volume.js";
-import { buildAdjacency, parseGmsh } from "../src/index.js";
+import { buildAdjacency, cellVolumes, parseGmsh } from "../src/index.js";
 import type { Adjacency, Mesh } from "../src/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, "..", "..", "..", "tests", "fixtures");
+const MESHES_DIR = join(__dirname, "..", "..", "..", "meshes");
 
 function readBytes(path: string): Uint8Array {
   return new Uint8Array(readFileSync(path));
@@ -142,6 +144,7 @@ function warnFailMesh(): Mesh {
     conn,
     tags: new Int32Array([1, 2, 3]),
     physical: new Int32Array([1, 1, 1]),
+    cellNodeCount: new Int32Array([4, 4, 4]),
   };
 }
 
@@ -224,4 +227,95 @@ describe("findings - degenerate histogram ranges (single-tet)", () => {
     expect(edges[20]).toBeCloseTo(1e-9, 15);
     expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(1);
   });
+});
+
+describe("findings - higher-order tet disclosure", () => {
+  it("a purely linear mesh gets no finding", () => {
+    const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "single-tet.msh"))));
+    expect(elementOrderFindings(mesh)).toEqual([]);
+  });
+
+  it("a mesh with order-3 (20-node) tets gets exactly one pass-severity disclosure", () => {
+    const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "higher-order-tet20.msh"))));
+    const findings = elementOrderFindings(mesh);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.severity).toBe("pass");
+    expect(findings[0]!.message).toBe(
+      "Higher-order tets (20 nodes): metrics use the 4 corner nodes, i.e. the straight-sided cell a finite-volume solver sees; curvature is not checked.",
+    );
+  });
+
+  it("a mesh with order-2 (10-node) tets reports 10 nodes", () => {
+    const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "higher-order-tet10.msh"))));
+    const findings = elementOrderFindings(mesh);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain("10 nodes");
+  });
+
+  it("mixed orders report each distinct node count", () => {
+    const mesh: Mesh = {
+      coords: new Float64Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]),
+      conn: new Int32Array([0, 1, 2, 3]),
+      tags: new Int32Array([1]),
+      physical: new Int32Array([1]),
+      cellNodeCount: new Int32Array([10]),
+    };
+    expect(elementOrderFindings(mesh)[0]!.message).toContain("10 nodes");
+
+    const mixed: Mesh = {
+      ...mesh,
+      cellNodeCount: new Int32Array([10, 20]),
+    };
+    expect(elementOrderFindings(mixed)[0]!.message).toContain("10, 20 nodes each");
+  });
+});
+
+describe("findings - cylinder_3d.msh defect detection (decisions.md #31)", () => {
+  // meshes/cylinder_3d.msh is a real, externally-sourced higher-order
+  // (type 29) tet mesh with a genuine per-cell orientation defect baked
+  // into the source file itself (every even-indexed element has negative
+  // signed corner volume, every odd-indexed element positive -- confirmed
+  // by hand against the raw file, not a parsing or metric bug). checkMesh
+  // and SimCheck resolve this orientation ambiguity differently (gmshToFoam
+  // reads tets with no orientation correction, but OpenFOAM's own
+  // downstream face/cell construction evidently disagrees with Gmsh's
+  // convention for a different subset of cells), so this mesh is used ONLY
+  // as a defect-detection smoke test -- NOT compared against checkMesh
+  // numerically (see decisions.md #31 and the higher-order checkMesh gate
+  // in metrics.test.ts, which uses clean-order2/3.msh instead).
+  //
+  // Gitignored (meshes/**/*.msh), so this test skips gracefully if absent,
+  // same pattern as the bench-100k/1m benchmark meshes.
+  const meshPath = join(MESHES_DIR, "cylinder_3d.msh");
+  const available = existsSync(meshPath);
+
+  (available ? it : it.skip)(
+    "flags exactly the 4896 even-indexed cells as negative-volume, in a perfect alternating pattern",
+    () => {
+      const mesh = expectMesh(parseGmsh(readBytes(meshPath)));
+      const adjacency = expectAdjacency(buildAdjacency(mesh));
+      const vol = cellVolumes(mesh, adjacency);
+
+      expect(vol.length).toBe(9792);
+
+      let negCount = 0;
+      let sumAbs = 0;
+      for (let i = 0; i < vol.length; i++) {
+        const v = vol[i]!;
+        sumAbs += Math.abs(v);
+        const isNeg = v < 0;
+        // Perfect alternating pattern by element index parity.
+        expect(isNeg).toBe(i % 2 === 0);
+        if (isNeg) negCount++;
+      }
+
+      expect(negCount).toBe(4896);
+      expect(sumAbs).toBeCloseTo(0.41615, 4);
+
+      const result = volumeFindings(mesh, adjacency);
+      expect(result.findings).toHaveLength(1);
+      expect(result.findings[0]!.severity).toBe("fail");
+      expect(result.findings[0]!.message).toContain("4896 of 9792 cells");
+    },
+  );
 });

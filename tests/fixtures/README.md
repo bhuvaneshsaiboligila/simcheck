@@ -12,7 +12,7 @@ Element line format (v2.2): `id type nTags physical entity nodes...`. Type 4 = l
 | `inverted-tet.msh` | 1 cell, volume −1/6 → volume check **fail** |
 | `surface-only.msh` | 1 triangle, no tets → 2D-mesh error: "This is a 2D mesh (1 triangles). SimCheck checks 3D tetrahedral meshes — mesh a volume in Gmsh (Mesh → 3D)." |
 | `rectangle-2d.msh` | A unit square meshed as 2 triangles, no tets → same 2D-mesh error, "2 triangles" |
-| `mixed-prism.msh` | Contains a prism (type 6) → rejected: "Only pure tetrahedral meshes are supported in v0.2." |
+| `mixed-prism.msh` | Contains a prism (type 6) → rejected: "Only tetrahedral meshes are supported in v0.2." |
 
 A file with elements but none of dimension 3 gets a message naming what it actually has, not the generic physical-group hint — the hint is only shown when the file has no elements of any kind (e.g. an empty `$Elements` section). See `noVolumeCellsMessage` in `packages/core/src/parsers/gmsh.ts`.
 

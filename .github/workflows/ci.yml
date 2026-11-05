@@ -35,6 +35,18 @@ jobs:
           gmsh bench-cube.geo -3 -format msh41 -clmax 0.0355 -o bench-100k.msh
           gmsh bench-cube.geo -3 -format msh41 -clmax 0.0165 -o bench-1m.msh
 
+      - name: Generate clean higher-order meshes
+        # decisions.md #31: the higher-order checkMesh-comparison gate
+        # (metrics.test.ts's higherOrderCases). meshes/cylinder_3d.msh is
+        # NOT generated here -- it's a real externally-sourced file, not
+        # regenerable from a .geo. Its defect-detection smoke test
+        # (findings.test.ts) correctly skips (via it.skip) when the file
+        # is absent, which it always will be in CI.
+        run: |
+          cd meshes
+          gmsh bench-cube.geo -3 -order 2 -clmax 0.3 -format msh2 -o clean-order2.msh
+          gmsh bench-cube.geo -3 -order 3 -clmax 0.3 -format msh2 -o clean-order3.msh
+
       - run: pnpm -r typecheck
 
       - run: pnpm test

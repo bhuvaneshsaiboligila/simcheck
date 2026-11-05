@@ -92,13 +92,48 @@ describe("parseGmsh - inverted-tet", () => {
   });
 });
 
+describe("parseGmsh - higher-order tets", () => {
+  it("higher-order-tet10.msh (type 11, 10 nodes): corners extracted, cellNodeCount recorded", () => {
+    const mesh = expectMesh(parseGmsh(readFixture("higher-order-tet10.msh")));
+    expect(mesh.conn.length).toBe(4);
+    expect(Array.from(mesh.conn)).toEqual([0, 1, 2, 3]);
+    expect(Array.from(mesh.cellNodeCount)).toEqual([10]);
+  });
+
+  it("higher-order-tet20.msh (type 29, 20 nodes): corners extracted, cellNodeCount recorded", () => {
+    const mesh = expectMesh(parseGmsh(readFixture("higher-order-tet20.msh")));
+    expect(mesh.conn.length).toBe(4);
+    expect(Array.from(mesh.conn)).toEqual([0, 1, 2, 3]);
+    expect(Array.from(mesh.cellNodeCount)).toEqual([20]);
+  });
+
+  it("a linear tet (type 4) has cellNodeCount 4, same as before", () => {
+    const mesh = expectMesh(parseGmsh(readFixture("single-tet.msh")));
+    expect(Array.from(mesh.cellNodeCount)).toEqual([4]);
+  });
+
+  it("higher-order-tet10.msh and its v41 sibling parse to the same conn/cellNodeCount", () => {
+    const v22 = expectMesh(parseGmsh(readFixture("higher-order-tet10.msh")));
+    const v41 = expectMesh(parseGmsh(readFixture("higher-order-tet10-v41.msh")));
+    expect(Array.from(v41.conn)).toEqual(Array.from(v22.conn));
+    expect(Array.from(v41.cellNodeCount)).toEqual(Array.from(v22.cellNodeCount));
+  });
+
+  it("higher-order-tet20.msh and its v41 sibling parse to the same conn/cellNodeCount", () => {
+    const v22 = expectMesh(parseGmsh(readFixture("higher-order-tet20.msh")));
+    const v41 = expectMesh(parseGmsh(readFixture("higher-order-tet20-v41.msh")));
+    expect(Array.from(v41.conn)).toEqual(Array.from(v22.conn));
+    expect(Array.from(v41.cellNodeCount)).toEqual(Array.from(v22.cellNodeCount));
+  });
+});
+
 describe("parseGmsh - rejections", () => {
-  it("mixed-prism.msh is rejected: pure tets only", () => {
+  it("mixed-prism.msh is rejected: tets only", () => {
     const result = parseGmsh(readFixture("mixed-prism.msh"));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe(
-        "Only pure tetrahedral meshes are supported in v0.2.",
+        "Only tetrahedral meshes are supported in v0.2.",
       );
     }
   });
@@ -108,7 +143,7 @@ describe("parseGmsh - rejections", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe(
-        "Only pure tetrahedral meshes are supported in v0.2.",
+        "Only tetrahedral meshes are supported in v0.2.",
       );
     }
   });
@@ -162,6 +197,22 @@ describe("parseGmsh - rejections", () => {
     if (!result.ok) {
       expect(result.error.message).toBe(
         "No volume cells found. Did you add a volume physical group in Gmsh?",
+      );
+    }
+  });
+
+  it("a file with only higher-order (6-node, type 9) triangles still says 'triangles', not '2D elements'", () => {
+    // type 9 = 6-node second order triangle: 3 corners + 3 edge nodes.
+    const bytes = new TextEncoder().encode(
+      "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n$Nodes\n6\n" +
+        "1 0 0 0\n2 1 0 0\n3 0 1 0\n4 0.5 0 0\n5 0.5 0.5 0\n6 0 0.5 0\n" +
+        "$EndNodes\n$Elements\n1\n1 9 2 1 1 1 2 3 4 5 6\n$EndElements\n",
+    );
+    const result = parseGmsh(bytes);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toBe(
+        "This is a 2D mesh (1 triangles). SimCheck checks 3D tetrahedral meshes — mesh a volume in Gmsh (Mesh → 3D).",
       );
     }
   });

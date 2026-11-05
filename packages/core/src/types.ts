@@ -41,12 +41,20 @@ export function err<T>(field: string, message: string): Result<T> {
  * Pure-tet volume mesh, v0.2 (PLAN.md §6). Produced by parsers/gmsh.ts.
  * Flat typed arrays only: one entry per node in `coords`, one group of 4
  * node indices per tet in `conn`, one entry per tet in `tags`/`physical`.
+ *
+ * `conn` always holds exactly 4 corner node indices per tet, even for a
+ * higher-order (curved) tet (decisions.md #9 revised): Gmsh orders a tet's
+ * nodes corners-first for every order it defines, so `conn` is always the
+ * straight-sided cell a finite-volume solver actually sees. `cellNodeCount`
+ * records each cell's original node count (4/10/20/35/56) so a mesh with
+ * any higher-order tets can be told apart from a purely-linear one.
  */
 export interface Mesh {
   coords: Float64Array; // x,y,z per node
-  conn: Int32Array; // 4 node indices per tet (0-based, dense)
+  conn: Int32Array; // 4 corner node indices per tet (0-based, dense)
   tags: Int32Array; // Gmsh element tag per cell
   physical: Int32Array; // physical group tag per cell (0 if none)
+  cellNodeCount: Int32Array; // original per-cell node count (4 for linear tets)
 }
 
 /**

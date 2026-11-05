@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { InputError } from "@simcheck/core";
 import type { MeshCheckResult, WorkerRequest, WorkerResponse } from "../../worker/messages";
 import { ErrorNotice } from "../ErrorNotice";
+import { FindingsList } from "../FindingsList";
 import { DropZone } from "./DropZone";
 import { ProgressBar } from "./ProgressBar";
 import { MetricPanel } from "./MetricPanel";
@@ -85,6 +86,7 @@ export function MeshCheckerSection() {
           <p className="mesh-summary">
             <strong>{result.cellCount.toLocaleString()}</strong> tetrahedral cells checked.
           </p>
+          <FindingsList findings={result.notes} />
           <MetricPanel title="Volume" metric={result.volume} hasHistogram={false} />
           <MetricPanel title="Aspect ratio" metric={result.aspectRatio} hasHistogram />
           <MetricPanel

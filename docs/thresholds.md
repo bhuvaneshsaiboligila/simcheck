@@ -55,3 +55,20 @@ Output: `tests/reference/<mesh-name>.json`, committed (76–80 KB total for all 
 - `perCellFields` — one entry per mesh-quality field written by `-writeAllFields` into the case's `constant/` directory (`aspectRatio`, `cellAspectRatio`, `cellDeterminant`, `cellShapes`, `cellVolume`, `cellVolumeRatio`, `faceWeight`, `minPyrVolume`, `minTetVolume`, `nonOrthoAngle`, `skewness`; `wallDistance` only when a wall patch exists). Each is reduced to `{count, min, max, mean}` computed from the field's full double-precision values (not checkMesh's 6-sig-fig printed summary) — not the raw per-cell values, since decision #16 means per-cell IDs aren't comparable against SimCheck's own output anyway (`gmshToFoam` renumbers cells), and storing ~1M raw values per field would make the committed JSON huge for no benefit. (`-writeAllFields` writes directly into the case's current time directory, `constant/` here, not into a `postProcessing/` directory — there is no `postProcessing/` step in this pipeline.)
 
 Verified end-to-end on all 6 meshes, including the 1M-tet benchmark mesh (1,016,007 cells, matching the milestone 5 benchmark mesh exactly).
+
+## Higher-order tets (decisions.md #31)
+
+`gmshToFoam` only reads Gmsh element type 4 (linear tet, confirmed: `MSHTET = 4` hardcoded in `gmshToFoam.C`, no case for types 11/29/30/31). So the reference pipeline for a higher-order mesh needs a linearised sibling, generated via the Gmsh Python API (not the `gmsh` CLI's `-order` flag, which only applies during fresh mesh generation and does not downgrade an already-higher-order file):
+
+```python
+import gmsh
+gmsh.initialize()
+gmsh.open("higher-order-mesh.msh")
+gmsh.model.mesh.setOrder(1)
+gmsh.option.setNumber("Mesh.SaveAll", 1)
+gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
+gmsh.write("higher-order-mesh-linear.msh")
+gmsh.finalize()
+```
+
+The checkMesh reference for a higher-order mesh is generated from this linear sibling; SimCheck's own metrics are computed directly on the original higher-order file (exercising its real corner-extraction code path). See `meshes/README.md` for the exact commands used for `clean-order2.msh`/`clean-order3.msh`, and decisions.md #31 for why `cylinder_3d.msh` is not part of this comparison.

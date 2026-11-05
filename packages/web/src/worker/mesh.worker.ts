@@ -19,6 +19,7 @@ import {
   aspectRatioFindings,
   nonOrthogonalityFindings,
   skewnessFindings,
+  elementOrderFindings,
 } from "@simcheck/core";
 import type { MeshCheckResult, WorkerRequest, WorkerResponse } from "./messages.js";
 
@@ -70,8 +71,11 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
     const skewness = skewnessFindings(mesh, adjacency);
     progress("Computed skewness", 100);
 
+    const notes = elementOrderFindings(mesh);
+
     const result: MeshCheckResult = {
       cellCount: mesh.conn.length / 4,
+      notes,
       volume,
       aspectRatio,
       nonOrthogonality,

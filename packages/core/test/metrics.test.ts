@@ -192,6 +192,26 @@ const benchCases: GateCase[] = [
   { name: "bench-1m", meshPath: join(MESHES_DIR, "bench-1m.msh") },
 ];
 
+// decisions.md #31: clean, consistently-oriented order-2 (type 11, 10-node)
+// and order-3 (type 29, 20-node) tet meshes, generated directly by Gmsh's
+// own 3D mesher (not an externally-sourced file) specifically so the
+// checkMesh comparison gate has an unambiguous, correctly-oriented case to
+// verify higher-order corner extraction against. (meshes/cylinder_3d.msh,
+// a real externally-sourced higher-order mesh, is NOT used here -- it has
+// a genuine per-cell orientation defect at the source-file level that
+// makes a checkMesh numeric comparison ill-defined; see its own dedicated
+// defect-detection test instead, and decisions.md #31.) Each reference
+// JSON was generated from the mesh's own linearised sibling
+// (meshes/clean-order{2,3}-linear.msh, via gmsh.model.mesh.setOrder(1),
+// since gmshToFoam only reads linear tets) -- this test parses the
+// ORIGINAL higher-order file with SimCheck's own corner-node extraction,
+// so a match confirms that extraction reproduces the same geometry
+// checkMesh saw on the linearised file.
+const higherOrderCases: GateCase[] = [
+  { name: "clean-order2", meshPath: join(MESHES_DIR, "clean-order2.msh") },
+  { name: "clean-order3", meshPath: join(MESHES_DIR, "clean-order3.msh") },
+];
+
 function runGate(cases: GateCase[]): void {
   for (const { name, meshPath } of cases) {
     let loadError: Error | undefined;
@@ -264,3 +284,4 @@ function runGate(cases: GateCase[]): void {
 
 runGate(tinyCases);
 runGate(benchCases);
+runGate(higherOrderCases);

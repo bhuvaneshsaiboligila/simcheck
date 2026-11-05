@@ -122,6 +122,7 @@ function threeTetMesh(order: number[]): Mesh {
     conn,
     tags: Int32Array.from(order, (_, i) => i + 1),
     physical: Int32Array.from(order, () => 1),
+    cellNodeCount: Int32Array.from(order, () => 4),
   };
 }
 
@@ -204,6 +205,7 @@ describe("buildAdjacency - non-manifold rejection", () => {
       conn,
       tags: new Int32Array([1, 2, 3]),
       physical: new Int32Array([1, 1, 1]),
+      cellNodeCount: new Int32Array([4, 4, 4]),
     };
 
     const result = buildAdjacency(mesh);

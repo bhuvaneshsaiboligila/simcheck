@@ -3,10 +3,14 @@
 // plumbing types: the worker computes nothing itself beyond calling into
 // @simcheck/core, and this file never carries any physics or threshold.
 
-import type { InputError, MetricResult } from "@simcheck/core";
+import type { Finding, InputError, MetricResult } from "@simcheck/core";
 
 export interface MeshCheckResult {
   cellCount: number;
+  // Always-informative notes, not tied to any one metric (decisions.md
+  // #31): currently just the higher-order-tet disclosure, empty when the
+  // mesh is purely linear. Shown above the 4 metric panels.
+  notes: Finding[];
   volume: MetricResult;
   aspectRatio: MetricResult;
   nonOrthogonality: MetricResult;
