@@ -2,13 +2,15 @@
 
 A free, open-source, browser-based pre-flight checker for CFD setups. No server, no upload, no install — everything runs client-side.
 
-**v0.1 (this release): flow setup calculator.** Pick a solver type and fluid, enter your flow conditions, and get the first-cell wall distance for a target y+, boundary-layer thickness and layer count, a CFL-limited time step, and flow-regime warnings — every number shown with its formula and source.
+**v0.1: flow setup calculator.** Pick a solver type and fluid, enter your flow conditions, and get the first-cell wall distance for a target y+, boundary-layer thickness and layer count, a CFL-limited time step, and flow-regime warnings — every number shown with its formula and source.
 
 ![SimCheck v0.1 screenshot](docs/img/screenshot.png)
 
-**v0.2 (in progress): mesh checker** for pure-tet 3D Gmsh meshes, verified against OpenFOAM's `checkMesh`. See [`docs/PLAN.md`](docs/PLAN.md).
+**v0.2 (this release): mesh checker** for tetrahedral 3D Gmsh meshes, verified against OpenFOAM's `checkMesh`. See [`docs/PLAN.md`](docs/PLAN.md).
 
-What's verified so far: min/max/mean of volume, aspect ratio, non-orthogonality and skewness match OpenFOAM v2512 checkMesh to 1e-6 relative on the test meshes (see [`docs/thresholds.md`](docs/thresholds.md)). The browser UI, worker, and per-mesh findings are not built yet.
+**What's verified**: min/max/mean of volume, aspect ratio, non-orthogonality and skewness, for both linear and higher-order tets, match OpenFOAM v2512 checkMesh to 1e-6 relative on the test meshes (see [`docs/thresholds.md`](docs/thresholds.md)). Inverted cells are detected and excluded from aspect ratio and non-orthogonality so they don't contaminate the statistics (skewness is naturally unaffected by inverted neighbours, decision #34).
+
+**Limits**: tetrahedral meshes only — prisms, pyramids, and hexes are not supported yet (rejected with a clear message, not partly checked).
 
 ## Why
 
