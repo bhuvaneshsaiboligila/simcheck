@@ -1,12 +1,20 @@
 #!/bin/bash
 # SimCheck reference pipeline: Gmsh .msh → gmshToFoam → checkMesh → JSON
-# Usage: ./scripts/reference-pipeline.sh <mesh-file> <output-json>
+# Usage: ./scripts/reference-pipeline.sh <mesh-file> <output-json> [hash-mesh-file]
 # Example: ./scripts/reference-pipeline.sh tests/fixtures/single-tet.msh tests/reference/single-tet.json
+#
+# hash-mesh-file (optional, defaults to mesh-file): the file whose sha256
+# is recorded in the output JSON as `meshSha256` (decisions.md #37). This
+# is the file packages/core/test/metrics.test.ts actually parses -- for
+# the higher-order pair that's the original higher-order mesh, not the
+# linearised sibling passed as mesh-file (gmshToFoam only reads linear
+# tets, decisions.md #31), so the two differ there.
 
 set -eu
 
 MESH_FILE="${1:-}"
 OUTPUT_JSON="${2:-}"
+HASH_MESH_FILE="${3:-$MESH_FILE}"
 
 if [[ -z "$MESH_FILE" || -z "$OUTPUT_JSON" ]]; then
   echo "Usage: $0 <mesh-file> <output-json>"
@@ -76,11 +84,14 @@ if [[ ! -d "$WORK_DIR/constant/polyMesh" ]]; then
 fi
 
 # Convert checkMesh output to JSON using Node script
+HASH_MESH_ABS="$(cd "$(dirname "$HASH_MESH_FILE")" && pwd)/$(basename "$HASH_MESH_FILE")"
+
 node "$REPO_ROOT/scripts/format-reference-json.js" \
   "$WORK_DIR/checkmesh-output.txt" \
   "$WORK_DIR/constant/polyMesh" \
   "$WORK_DIR" \
   "$MESH_FILE" \
+  "$HASH_MESH_ABS" \
   > "$OUTPUT_ABS"
 
 echo "Generated reference JSON: $OUTPUT_ABS"

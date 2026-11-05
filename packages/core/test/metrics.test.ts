@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -152,6 +153,17 @@ interface FieldStats {
 
 interface ReferenceJson {
   perCellFields: Record<string, FieldStats>;
+  /** sha256 of the mesh file this JSON's checkMesh numbers were generated
+   * from (decisions.md #37) -- guards against gmsh regenerating a
+   * geometrically different mesh (e.g. a different gmsh version in CI)
+   * while keeping the same file name, which would otherwise fail the
+   * metric assertions below with confusing, large-magnitude diffs instead
+   * of a clear "wrong mesh" message. */
+  meshSha256?: string;
+}
+
+function sha256Of(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
 function loadReference(name: string): ReferenceJson {
@@ -215,25 +227,28 @@ const higherOrderCases: GateCase[] = [
 function runGate(cases: GateCase[]): void {
   for (const { name, meshPath } of cases) {
     let loadError: Error | undefined;
+    let meshBytes: Uint8Array | undefined;
     let mesh: Mesh | undefined;
     let adjacency: Adjacency | undefined;
     let reference: ReferenceJson | undefined;
 
     try {
-      mesh = expectMesh(parseGmsh(readBytes(meshPath)));
+      meshBytes = readBytes(meshPath);
+      mesh = expectMesh(parseGmsh(meshBytes));
       adjacency = expectAdjacency(buildAdjacency(mesh));
       reference = loadReference(name);
     } catch (e) {
       loadError = e as Error;
     }
 
-    if (loadError || !mesh || !adjacency || !reference) {
+    if (loadError || !meshBytes || !mesh || !adjacency || !reference) {
       describe(`metrics vs checkMesh reference - ${name}`, () => {
         it.skip(`mesh or reference unavailable: ${loadError?.message ?? "unknown"}`, () => {});
       });
       continue;
     }
 
+    const loadedMeshBytes = meshBytes;
     const loadedMesh = mesh;
     const loadedAdjacency = adjacency;
     const loadedReference = reference;
@@ -242,6 +257,22 @@ function runGate(cases: GateCase[]): void {
       const mesh = loadedMesh;
       const adjacency = loadedAdjacency;
       const reference = loadedReference;
+
+      // Runs first (declaration order): if a regenerated mesh (e.g. a
+      // different gmsh version in CI) silently produced different
+      // geometry under the same file name, this fails with one clear
+      // message instead of the metric assertions below failing with
+      // confusing, large, unexplained diffs.
+      it("mesh matches the file the reference was generated from (sha256)", () => {
+        if (!reference.meshSha256) return;
+        const actual = sha256Of(loadedMeshBytes);
+        if (actual !== reference.meshSha256) {
+          throw new Error(
+            `mesh differs from reference (gmsh version?): ${meshPath} has sha256 ${actual}, ` +
+              `tests/reference/${name}.json expects ${reference.meshSha256}`,
+          );
+        }
+      });
 
       it("cellVolume: min/max/mean within tolerance", () => {
         const vol = cellVolumes(mesh, adjacency);

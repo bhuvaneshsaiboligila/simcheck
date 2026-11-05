@@ -34,6 +34,16 @@ declare -A MESHES=(
   ["meshes/clean-order3-linear.msh"]="tests/reference/clean-order3.json"
 )
 
+# decisions.md #37: for the higher-order pair, the file hashed into the
+# output JSON's `meshSha256` must be the ORIGINAL higher-order mesh (what
+# packages/core/test/metrics.test.ts actually parses), not the linearised
+# sibling above that gmshToFoam needs. Every other mesh hashes itself, so
+# only these two need an override.
+declare -A HASH_MESH=(
+  ["tests/reference/clean-order2.json"]="meshes/clean-order2.msh"
+  ["tests/reference/clean-order3.json"]="meshes/clean-order3.msh"
+)
+
 echo "Starting reference pipeline generation..."
 echo "========================================="
 
@@ -46,7 +56,7 @@ for mesh in "${!MESHES[@]}"; do
   echo "Processing: $mesh"
   echo "Output: $output"
 
-  if "$SCRIPT" "$mesh" "$output"; then
+  if "$SCRIPT" "$mesh" "$output" "${HASH_MESH[$output]:-$mesh}"; then
     echo "✓ Success"
     SUCCESS=$((SUCCESS + 1))
   else

@@ -21,7 +21,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Install gmsh
-        run: sudo apt-get update && sudo apt-get install -y gmsh
+        # Pinned to 4.15.2 (decisions.md #37) -- apt's packaged gmsh
+        # (4.8.4 on ubuntu-latest) meshes the same .geo differently, so
+        # the benchmark/higher-order meshes regenerated below silently
+        # stopped matching tests/reference/*.json's checkMesh data, which
+        # was captured against 4.15.2. pip install matches the version
+        # meshes/README.md documents for local regeneration.
+        run: |
+          pip install --user --break-system-packages gmsh==4.15.2
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Generate benchmark meshes
         # meshes/README.md's documented commands; these two .msh files are

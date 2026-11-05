@@ -4,13 +4,16 @@
  * Usage: node format-reference-json.js <checkmesh-output> <polymesh-dir> <case-dir> <mesh-name>
  */
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const [, , checkMeshOutput, polyMeshDir, caseDir, meshName] = process.argv;
+const [, , checkMeshOutput, polyMeshDir, caseDir, meshName, hashMeshFile] = process.argv;
 
 if (!checkMeshOutput || !polyMeshDir) {
-  console.error('Usage: node format-reference-json.js <checkmesh-output> <polymesh-dir> <case-dir> <mesh-name>');
+  console.error(
+    'Usage: node format-reference-json.js <checkmesh-output> <polymesh-dir> <case-dir> <mesh-name> [hash-mesh-file]',
+  );
   process.exit(1);
 }
 
@@ -190,6 +193,25 @@ try {
   result.polyMesh = polyMeshProps;
   if (Object.keys(fields).length > 0) {
     result.perCellFields = fields;
+  }
+
+  // decisions.md #37: sha256 of the mesh file the TypeScript test actually
+  // parses (packages/core/test/metrics.test.ts's GateCase.meshPath) -- for
+  // the higher-order pair this is the ORIGINAL higher-order file, passed
+  // separately as hashMeshFile, not `meshName` (which for those two is the
+  // linearised sibling fed to gmshToFoam). Defaults to `meshName` when no
+  // separate hash-mesh file is given.
+  //
+  // An explicitly-passed hashMeshFile that doesn't exist is a caller bug
+  // (e.g. a typo'd override path), not an absent-field situation -- fail
+  // loudly rather than silently omitting meshSha256, which would quietly
+  // disable decision #37's whole safety net for that one reference file.
+  if (hashMeshFile && !fs.existsSync(hashMeshFile)) {
+    throw new Error(`hash-mesh-file does not exist: ${hashMeshFile}`);
+  }
+  const hashSource = hashMeshFile || meshName;
+  if (hashSource && fs.existsSync(hashSource)) {
+    result.meshSha256 = crypto.createHash('sha256').update(fs.readFileSync(hashSource)).digest('hex');
   }
 
   console.log(JSON.stringify(result, null, 2));
