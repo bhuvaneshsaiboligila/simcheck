@@ -136,7 +136,11 @@ function warnFailMesh(): Mesh {
   ]);
   const conn = new Int32Array([
     0, 1, 2, 3, // tet A (tag 1)
-    1, 4, 2, 3, // tet B (tag 2)
+    4, 1, 2, 3, // tet B (tag 2) -- first two swapped vs. the face-sharing order so B has
+    // positive volume; the shared face {1,2,3}'s winding comes from owner A (lower cell
+    // index), so this doesn't change any angle, only B's own volume sign (decisions.md #34
+    // caught this fixture accidentally had B inverted, which is now excluded by the fix
+    // this file also tests -- unrelated to what this specific test is checking).
     0, 1, 2, 5, // tet C (tag 3)
   ]);
   return {
@@ -344,32 +348,100 @@ describe("findings - aspect ratio excludes inverted-cell sentinel values (decisi
     expect(r.findings.some((f) => f.title === "Inverted cells excluded")).toBe(false);
   });
 
-  it("non-orthogonality and skewness do NOT need the same exclusion -- confirmed no sentinel values on cylinder_3d.msh", () => {
+  it("skewness does NOT need the same exclusion -- confirmed no sentinel values on cylinder_3d.msh", () => {
     const meshPath = join(MESHES_DIR, "cylinder_3d.msh");
     if (!existsSync(meshPath)) return; // gitignored, same skip pattern as elsewhere in this file
     const mesh = expectMesh(parseGmsh(readBytes(meshPath)));
     const adjacency = expectAdjacency(buildAdjacency(mesh));
 
-    const nonOrtho = nonOrthogonalityFindings(mesh, adjacency);
     const skew = skewnessFindings(mesh, adjacency);
 
-    // Mathematically bounded regardless of cell orientation: nonOrthoAngle
-    // is an arccosine (0-180°), skewness has no volume term. Neither
-    // formula has a division-by-volume sentinel mechanism, so even with
-    // ~4896 genuinely inverted cells in this mesh, values stay in ordinary
-    // ranges (confirmed by direct computation: non-orthogonality ~99-177°,
-    // skewness ~0.43-0.63) -- nowhere near aspect ratio's ~1e+98-scale
-    // sentinel. The bounds below are deliberately looser than those
-    // measured values (not hardcoding an exact number that could break on
-    // an unrelated mesh regeneration), but still tight enough that only a
-    // genuinely bounded, non-sentinel result can pass -- a vacuous
-    // "nonOrtho.max <= 180" alone would pass even on an empty or
-    // all-clean mesh, so the real evidence here is the upper bound being
-    // nowhere near astronomical.
-    expect(nonOrtho.max).toBeGreaterThan(50); // real, non-degenerate angles are present
-    expect(nonOrtho.max).toBeLessThan(1000); // nowhere near a sentinel
+    // Unlike non-orthogonality (decisions.md #34, see the dedicated
+    // describe block below), skewness's ratio `dot(S,Cpf)/dot(S,d)` has S
+    // in BOTH numerator and denominator, so a sign-flipped S from an
+    // inverted owner/neighbour cancels out exactly -- skewness stays
+    // correct even next to an inverted cell, confirmed empirically here
+    // against ~4896 genuinely inverted cells (max stays ~0.43-0.63,
+    // nowhere near a sentinel).
     expect(skew.max).toBeGreaterThan(0.1); // real, non-degenerate skewness is present
     expect(skew.max).toBeLessThan(1000); // nowhere near a sentinel
+  });
+});
+
+describe("findings - non-orthogonality excludes faces next to inverted cells (decisions.md #34)", () => {
+  it("cylinder_3d.msh: matches the numbers verified against the exclusion fix", () => {
+    const meshPath = join(MESHES_DIR, "cylinder_3d.msh");
+    if (!existsSync(meshPath)) return; // gitignored, same skip pattern as elsewhere in this file
+    const mesh = expectMesh(parseGmsh(readBytes(meshPath)));
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = nonOrthogonalityFindings(mesh, adjacency);
+
+    // Before this fix, every cell's angle was contaminated by faces
+    // touching an inverted neighbour (every even-indexed cell in this
+    // mesh, decisions.md #31), reporting max ~177° and mean ~153° -- close
+    // to the complementary (wrong) angle, not a sentinel blow-up, which is
+    // precisely why it looked like a plausible real number instead of an
+    // obvious defect. With contaminated faces excluded:
+    expect(r.max).toBeCloseTo(80.83122494221062, 6);
+    expect(r.mean).toBeCloseTo(45.093456154057144, 6);
+    expect(r.min).toBeCloseTo(20.095050828988114, 6);
+
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]!.severity).toBe("warn");
+    expect(r.findings[0]!.message).toBe(
+      "744 of 4896 cells (15.2%) have a face-to-cell non-orthogonality angle of more than 70° (but below 90°) — checkMesh's own warning band. Worst: 80.83° (tag 6114).",
+    );
+    // No fail-tier finding: 0 cells >= 90°.
+    expect(r.findings.some((f) => f.title === "Non-orthogonality errors")).toBe(false);
+
+    expect(r.findings[1]!.title).toBe("Faces next to inverted cells excluded");
+    expect(r.findings[1]!.message).toBe("15412 faces next to inverted cells excluded — see Volume.");
+
+    // Only the 4896 originally-valid cells are assessable (every face of
+    // an originally-inverted cell is unclean, so it has zero clean faces).
+    expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(4896);
+  });
+
+  it("a mesh with no inverted cells gets no exclusion note, same result as before the fix", () => {
+    const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "two-tets-orthogonal.msh"))));
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = nonOrthogonalityFindings(mesh, adjacency);
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe("pass");
+    expect(r.findings.some((f) => f.title === "Faces next to inverted cells excluded")).toBe(false);
+  });
+
+  it("one normal + one inverted cell, far apart (no shared faces): the normal cell is unaffected, the inverted cell is excluded entirely", () => {
+    const mesh = oneNormalOneInvertedMesh();
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = nonOrthogonalityFindings(mesh, adjacency);
+
+    // Both tets have only boundary faces (no shared internal face, since
+    // they're far apart with disjoint node sets) -- a boundary face is
+    // "clean" only if its single owner cell is valid, so all 4 of the
+    // inverted cell's faces are excluded, and all 4 of the normal cell's
+    // faces stay clean (angle 0, since boundary faces default to 0°).
+    expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(1); // only the valid cell is assessable
+    expect(r.max).toBe(0);
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]!.severity).toBe("pass");
+    expect(r.findings[1]!.title).toBe("Faces next to inverted cells excluded");
+    expect(r.findings[1]!.message).toBe("4 faces next to inverted cells excluded — see Volume.");
+  });
+
+  it("every cell inverted: 'can't be assessed' message, not a degenerate stats dump", () => {
+    const mesh = expectMesh(parseGmsh(readBytes(join(FIXTURES_DIR, "inverted-tet.msh"))));
+    const adjacency = expectAdjacency(buildAdjacency(mesh));
+    const r = nonOrthogonalityFindings(mesh, adjacency);
+
+    expect(r.min).toBe(0);
+    expect(r.max).toBe(0);
+    expect(r.mean).toBe(0);
+    expect(r.worst).toEqual([]);
+    expect(r.histogram!.reduce((a, b) => a + b, 0)).toBe(0);
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe("pass");
+    expect(r.findings[0]!.message).toBe("Non-orthogonality can't be assessed until inverted cells are fixed.");
   });
 });
 

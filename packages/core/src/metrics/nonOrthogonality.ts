@@ -19,11 +19,19 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, x));
 }
 
-export function nonOrthoAngleMetric(mesh: Mesh, adjacency: Adjacency): Float64Array {
-  const numTets = mesh.conn.length / 4;
+/**
+ * Per-face non-orthogonality angle (degrees), length `adjacency.faceCount`
+ * -- the array `nonOrthoAngleMetric` itself reduces by max-per-cell.
+ * Exposed separately so the findings layer (checks/mesh/nonOrthogonality.ts)
+ * can identify and exclude specific contaminated faces (decisions.md #34:
+ * a face's `S` is taken from its owner's winding, so a face where the
+ * owner -- or, for an internal face, the neighbour -- is inverted has a
+ * wrong-sign `S`/`d` relationship and reports close to the complementary
+ * angle, not the true one) without re-deriving this per-face computation.
+ */
+export function faceOrthoAngles(mesh: Mesh, adjacency: Adjacency): Float64Array {
   const S = faceAreaVectors(mesh, adjacency);
   const cc = cellCentroids(mesh);
-  const faces = cellFaces(numTets, adjacency);
 
   const faceAngleDeg = new Float64Array(adjacency.faceCount);
 
@@ -51,6 +59,14 @@ export function nonOrthoAngleMetric(mesh: Mesh, adjacency: Adjacency): Float64Ar
     // Boundary face: faceOrtho = 1 -> angle 0.
     faceAngleDeg[f] = Math.acos(clamp(1, -1, 1)) * RAD_TO_DEG;
   }
+
+  return faceAngleDeg;
+}
+
+export function nonOrthoAngleMetric(mesh: Mesh, adjacency: Adjacency): Float64Array {
+  const numTets = mesh.conn.length / 4;
+  const faceAngleDeg = faceOrthoAngles(mesh, adjacency);
+  const faces = cellFaces(numTets, adjacency);
 
   const result = new Float64Array(numTets);
   for (let t = 0; t < numTets; t++) {
