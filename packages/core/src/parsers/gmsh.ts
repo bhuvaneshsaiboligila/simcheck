@@ -69,6 +69,7 @@ const ELEMENT_NODE_COUNT: Readonly<Record<number, number>> = {
 };
 
 const LINEAR_TET_TYPE = 4;
+const LINEAR_TRIANGLE_TYPE = 2;
 
 // ---------------------------------------------------------------------------
 // Parse errors: thrown internally, caught once at the top of parseGmsh() and
@@ -458,6 +459,16 @@ interface ParsedElements {
   elementTags: Int32Array; // length = count
   physicals: Int32Array; // length = count
   nodesFlat: Int32Array; // raw Gmsh node tags, 4 per kept element
+  // Counts of discarded lower-dimension elements, O(1) extra state (not
+  // per-element storage, decisions.md #11 unaffected) kept only so a file
+  // with no dimension-3 elements at all can be told apart from one with no
+  // elements of any kind -- "no volume cells, did you add a physical
+  // group" is the right message for the latter, but misleading for a 2D
+  // (surface-only) mesh, which needs a different, more specific message.
+  dim0Count: number;
+  dim1Count: number;
+  dim2Count: number;
+  dim2TriangleCount: number; // subset of dim2Count that is specifically LINEAR_TRIANGLE_TYPE
 }
 
 function nodeCountForType(type: number): number {
@@ -482,6 +493,10 @@ function parseElementsV22(reader: ByteReader): ParsedElements {
   const physicals = new Int32Array(headerCount);
   const nodesFlat = new Int32Array(headerCount * 4);
   let kept = 0;
+  let dim0Count = 0;
+  let dim1Count = 0;
+  let dim2Count = 0;
+  let dim2TriangleCount = 0;
 
   for (let i = 0; i < headerCount; i++) {
     const id = reader.readInt();
@@ -501,6 +516,12 @@ function parseElementsV22(reader: ByteReader): ParsedElements {
       // Not part of the output Mesh (surface/edge/point element): consume
       // its node indices to stay correctly positioned, discard them.
       for (let n = 0; n < nodeCount; n++) reader.readInt();
+      if (dim === 0) dim0Count++;
+      else if (dim === 1) dim1Count++;
+      else if (dim === 2) {
+        dim2Count++;
+        if (type === LINEAR_TRIANGLE_TYPE) dim2TriangleCount++;
+      }
       continue;
     }
     if (type !== LINEAR_TET_TYPE) {
@@ -521,6 +542,10 @@ function parseElementsV22(reader: ByteReader): ParsedElements {
     elementTags: elementTags.slice(0, kept),
     physicals: physicals.slice(0, kept),
     nodesFlat: nodesFlat.slice(0, kept * 4),
+    dim0Count,
+    dim1Count,
+    dim2Count,
+    dim2TriangleCount,
   };
 }
 
@@ -538,6 +563,10 @@ function parseElementsV41(
   let physicals = new Int32Array(capacity);
   let nodesFlat = new Int32Array(capacity * 4);
   let kept = 0;
+  let dim0Count = 0;
+  let dim1Count = 0;
+  let dim2Count = 0;
+  let dim2TriangleCount = 0;
 
   // The v4.1 header's total-element-count hint is exact for well-formed
   // files (it is the sum of every block's declared size), so this never
@@ -574,6 +603,12 @@ function parseElementsV41(
         reader.readInt(); // tag
         for (let n = 0; n < nodeCount; n++) reader.readInt();
       }
+      if (entityDim === 0) dim0Count += numInBlock;
+      else if (entityDim === 1) dim1Count += numInBlock;
+      else if (entityDim === 2) {
+        dim2Count += numInBlock;
+        if (elementType === LINEAR_TRIANGLE_TYPE) dim2TriangleCount += numInBlock;
+      }
       continue;
     }
 
@@ -599,12 +634,49 @@ function parseElementsV41(
     elementTags: elementTags.slice(0, kept),
     physicals: physicals.slice(0, kept),
     nodesFlat: nodesFlat.slice(0, kept * 4),
+    dim0Count,
+    dim1Count,
+    dim2Count,
+    dim2TriangleCount,
   };
 }
 
 // ---------------------------------------------------------------------------
 // Top-level driver
 // ---------------------------------------------------------------------------
+
+/**
+ * Builds the "no 3D cells" error message, distinguishing a genuinely empty
+ * $Elements section (or a missing one entirely, `dims` undefined) from a
+ * file that has elements but none of them are volume (dimension-3) cells --
+ * most commonly a 2D (surface-only) mesh. The physical-group hint is only
+ * useful for the former case; showing it for a 2D mesh is misleading, since
+ * adding a volume physical group to a file with no volume to tag does
+ * nothing.
+ */
+function noVolumeCellsMessage(
+  dims:
+    | { dim0Count: number; dim1Count: number; dim2Count: number; dim2TriangleCount: number }
+    | undefined,
+): string {
+  const nonVolumeCount = dims ? dims.dim0Count + dims.dim1Count + dims.dim2Count : 0;
+  if (!dims || nonVolumeCount === 0) {
+    return "No volume cells found. Did you add a volume physical group in Gmsh?";
+  }
+  if (dims.dim2Count > 0) {
+    const label =
+      dims.dim2TriangleCount === dims.dim2Count ? `${dims.dim2Count} triangles` : `${dims.dim2Count} 2D elements`;
+    return (
+      `This is a 2D mesh (${label}). SimCheck checks 3D tetrahedral meshes — ` +
+      "mesh a volume in Gmsh (Mesh → 3D)."
+    );
+  }
+  // Only 0D (points) and/or 1D (lines) elements, no surfaces or volumes.
+  return (
+    "This mesh has no 3D (tetrahedral) cells. SimCheck checks 3D tetrahedral meshes — " +
+    "mesh a volume in Gmsh (Mesh → 3D)."
+  );
+}
 
 function buildMesh(nodes: ParsedNodes, elements: ParsedElements): Mesh {
   const cellCount = elements.count;
@@ -613,10 +685,7 @@ function buildMesh(nodes: ParsedNodes, elements: ParsedElements): Mesh {
   // failed fast on any other dimension-3 type), so an empty kept set here
   // means the file had no dimension-3 elements at all.
   if (cellCount === 0) {
-    fail(
-      "elements",
-      "No volume cells found. Did you add a volume physical group in Gmsh?",
-    );
+    fail("elements", noVolumeCellsMessage(elements));
   }
 
   const conn = new Int32Array(cellCount * 4);
@@ -697,10 +766,7 @@ function parseGmshInner(chunks: Uint8Array[]): Mesh {
   if (version === undefined) fail("file", "missing $MeshFormat section");
   if (nodes === undefined) fail("file", "missing $Nodes section");
   if (elements === undefined) {
-    fail(
-      "elements",
-      "No volume cells found. Did you add a volume physical group in Gmsh?",
-    );
+    fail("elements", noVolumeCellsMessage(undefined));
   }
 
   return buildMesh(nodes, elements);

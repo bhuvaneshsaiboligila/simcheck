@@ -113,12 +113,12 @@ describe("parseGmsh - rejections", () => {
     }
   });
 
-  it("surface-only.msh is rejected: no volume cells", () => {
+  it("surface-only.msh (1 triangle, no tets) is rejected with the 2D-mesh message, not the physical-group hint", () => {
     const result = parseGmsh(readFixture("surface-only.msh"));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe(
-        "No volume cells found. Did you add a volume physical group in Gmsh?",
+        "This is a 2D mesh (1 triangles). SimCheck checks 3D tetrahedral meshes — mesh a volume in Gmsh (Mesh → 3D).",
       );
     }
   });
@@ -128,7 +128,55 @@ describe("parseGmsh - rejections", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toBe(
+        "This is a 2D mesh (1 triangles). SimCheck checks 3D tetrahedral meshes — mesh a volume in Gmsh (Mesh → 3D).",
+      );
+    }
+  });
+
+  it("rectangle-2d.msh (2 triangles, no tets) is rejected with the 2D-mesh message", () => {
+    const result = parseGmsh(readFixture("rectangle-2d.msh"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toBe(
+        "This is a 2D mesh (2 triangles). SimCheck checks 3D tetrahedral meshes — mesh a volume in Gmsh (Mesh → 3D).",
+      );
+    }
+  });
+
+  it("rectangle-2d-v41.msh is rejected the same way", () => {
+    const result = parseGmsh(readFixture("rectangle-2d-v41.msh"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toBe(
+        "This is a 2D mesh (2 triangles). SimCheck checks 3D tetrahedral meshes — mesh a volume in Gmsh (Mesh → 3D).",
+      );
+    }
+  });
+
+  it("a file with no elements of any kind keeps the physical-group hint", () => {
+    const bytes = new TextEncoder().encode(
+      "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n$Nodes\n0\n$EndNodes\n$Elements\n0\n$EndElements\n",
+    );
+    const result = parseGmsh(bytes);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toBe(
         "No volume cells found. Did you add a volume physical group in Gmsh?",
+      );
+    }
+  });
+
+  it("a file with only line elements (1D, no triangles) gets the generic no-3D-cells message", () => {
+    // type 1 = 2-node line; node tags 1 2 after the single physical/entity tag pair.
+    const bytes = new TextEncoder().encode(
+      "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n$Nodes\n2\n1 0 0 0\n2 1 0 0\n$EndNodes\n" +
+        "$Elements\n1\n1 1 2 1 1 1 2\n$EndElements\n",
+    );
+    const result = parseGmsh(bytes);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toBe(
+        "This mesh has no 3D (tetrahedral) cells. SimCheck checks 3D tetrahedral meshes — mesh a volume in Gmsh (Mesh → 3D).",
       );
     }
   });
