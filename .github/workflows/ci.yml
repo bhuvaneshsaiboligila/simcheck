@@ -26,8 +26,12 @@ jobs:
         # the benchmark/higher-order meshes regenerated below silently
         # stopped matching tests/reference/*.json's checkMesh data, which
         # was captured against 4.15.2. pip install matches the version
-        # meshes/README.md documents for local regeneration.
+        # meshes/README.md documents for local regeneration. libglu1-mesa
+        # is a runtime dependency of the pip wheel's bundled shared
+        # library (apt's gmsh package pulled this in automatically as a
+        # transitive dependency; pip's standalone wheel does not).
         run: |
+          sudo apt-get update && sudo apt-get install -y libglu1-mesa
           pip install --user --break-system-packages gmsh==4.15.2
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
